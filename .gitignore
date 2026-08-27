@@ -1,0 +1,16 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/Cargo.lock
+*.log
+.DS_Store
+src-tauri/gen/
+.tauri/
+.idea/
+.vscode/
+.env
+.env.local
+*.db
+*.db-shm
+*.db-wal
+photos/
