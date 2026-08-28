@@ -127,6 +127,7 @@ impl Database {
         }
         let conn = Connection::open(db_path)?;
         conn.execute_batch("PRAGMA journal_mode=WAL;")?;
+        conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         let db = Database {
             conn: Mutex::new(conn),
         };
@@ -405,15 +406,25 @@ impl Database {
         Ok(false)
     }
 
-    /// 获取需要（重新）逆地理编码的照片：所有带坐标且非人工标注的照片。
-    /// 已有的旧数据可能只存了街道级地址，重跑可刷新为完整中文地址。
-    pub fn get_photos_for_geocode(&self) -> Result<Vec<Photo>, Box<dyn std::error::Error>> {
+    /// 获取需要逆地理编码的照片。
+    /// force=false 时只返回缺少省/市信息的照片（默认增量模式，避免重复调用高德 API）；
+    /// force=true 时返回所有带坐标且非人工标注的照片（用于手动“刷新全部地址”）。
+    pub fn get_photos_for_geocode(&self, force: bool) -> Result<Vec<Photo>, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
+        let sql = if force {
             "SELECT id, file_path, file_name, file_size, taken_time, latitude, longitude,
              province, city, district, address, is_location_manual, camera_model, exif_data,
              thumbnail_path, created_at, updated_at FROM photos
              WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND is_location_manual = 0"
+        } else {
+            "SELECT id, file_path, file_name, file_size, taken_time, latitude, longitude,
+             province, city, district, address, is_location_manual, camera_model, exif_data,
+             thumbnail_path, created_at, updated_at FROM photos
+             WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND is_location_manual = 0
+               AND (province IS NULL OR city IS NULL OR address IS NULL)"
+        };
+        let mut stmt = conn.prepare(
+            sql
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(Photo {
@@ -443,18 +454,71 @@ impl Database {
         Ok(photos)
     }
 
-    pub fn delete_photo(&self, id: &str) -> Result<(Option<String>, Option<String>), Box<dyn std::error::Error>> {
+    /// 删除照片（级联清理 photo_tags、释放游记引用并同步游记计数），
+    /// 返回待删除的磁盘文件路径列表，由命令层负责实际删除。
+    pub fn delete_photo(&self, id: &str) -> Result<Vec<Option<String>>, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
+        let tx = conn.unchecked_transaction()?;
         // 先查询文件路径，便于命令层安全删除磁盘文件
-        let paths: Option<(Option<String>, Option<String>)> = {
-            let mut stmt = conn.prepare("SELECT file_path, thumbnail_path FROM photos WHERE id=?1")?;
+        let mut paths: Vec<Option<String>> = Vec::new();
+        {
+            let mut stmt = tx.prepare("SELECT file_path, thumbnail_path FROM photos WHERE id=?1")?;
             let mut rows = stmt.query_map(params![id], |row| {
                 Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?))
             })?;
-            rows.next().transpose()?
-        };
-        conn.execute("DELETE FROM photos WHERE id=?1", params![id])?;
-        Ok(paths.unwrap_or((None, None)))
+            if let Some(row) = rows.next() {
+                let (fp, tp) = row?;
+                paths.push(fp);
+                paths.push(tp);
+            }
+        }
+
+        // 收集该照片关联的人物标签缩略图，供命令层删除文件
+        {
+            let mut stmt = tx.prepare(
+                "SELECT t.face_thumb FROM tags t
+                 INNER JOIN photo_tags pt ON pt.tag_id = t.id
+                 WHERE pt.photo_id = ?1 AND t.face_thumb IS NOT NULL"
+            )?;
+            let mut rows = stmt.query_map(params![id], |row| row.get::<_, String>(0))?;
+            while let Some(thumb) = rows.next() {
+                paths.push(Some(thumb?));
+            }
+        }
+
+        // 记录照片所属游记，删除后同步更新游记照片计数
+        let mut trip_ids: Vec<String> = Vec::new();
+        {
+            let mut stmt = tx.prepare("SELECT trip_id FROM photos WHERE id=?1 AND trip_id IS NOT NULL")?;
+            let mut rows = stmt.query_map(params![id], |row| row.get::<_, String>(0))?;
+            while let Some(t) = rows.next() {
+                trip_ids.push(t?);
+            }
+        }
+
+        // 删除照片（photo_tags 由外键级联清理）
+        tx.execute("DELETE FROM photos WHERE id=?1", params![id])?;
+
+        // 清理失去引用的空人物标签（避免"人物 N"标签残留空壳）
+        tx.execute(
+            "DELETE FROM tags WHERE id IN (
+                SELECT t.id FROM tags t
+                LEFT JOIN photo_tags pt ON pt.tag_id = t.id
+                WHERE pt.tag_id IS NULL AND t.tag_type = 'person'
+            )",
+            [],
+        )?;
+
+        // 同步游记照片计数
+        for trip_id in trip_ids {
+            tx.execute(
+                "UPDATE trips SET photo_count = (SELECT COUNT(*) FROM photos WHERE trip_id = ?1), updated_at = ?2 WHERE id = ?1",
+                params![trip_id, Utc::now().to_rfc3339()],
+            )?;
+        }
+
+        tx.commit()?;
+        Ok(paths)
     }
 
     /// 分页获取照片（PRD 目标约 1 万张，避免一次性加载全表导致内存暴涨）
@@ -745,11 +809,22 @@ impl Database {
         Ok(())
     }
 
-    pub fn delete_auto_person_tags(&self) -> Result<(), Box<dyn std::error::Error>> {
+    /// 删除自动生成的人物标签（保留手动创建的），返回其 face_thumb 文件路径供命令层清理。
+    /// photo_tags 关联记录由外键级联删除。
+    pub fn delete_auto_person_tags(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
-        // 只删除自动生成的人物标签（有face_thumb的），保留手动创建的
+        let mut face_thumbs = Vec::new();
+        {
+            let mut stmt = conn.prepare(
+                "SELECT face_thumb FROM tags WHERE tag_type='person' AND face_thumb IS NOT NULL"
+            )?;
+            let mut rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+            while let Some(thumb) = rows.next() {
+                face_thumbs.push(thumb?);
+            }
+        }
         conn.execute("DELETE FROM tags WHERE tag_type='person' AND face_thumb IS NOT NULL", [])?;
-        Ok(())
+        Ok(face_thumbs)
     }
 
     pub fn get_or_create_person_tag(&self, name: &str, color: &str, face_thumb: Option<&str>) -> Result<Tag, Box<dyn std::error::Error>> {
@@ -1203,11 +1278,12 @@ impl Database {
 
     pub fn get_photos_not_in_trip(&self, trip_id: &str, limit: i64, offset: i64) -> Result<Vec<Photo>, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
+        // 只列出未归属任何游记的照片（已属于其他游记的照片不应出现在添加列表中）
         let mut stmt = conn.prepare(
             "SELECT id, file_path, file_name, file_size, taken_time, latitude, longitude,
              province, city, district, address, is_location_manual, camera_model, exif_data,
              thumbnail_path, created_at, updated_at FROM photos 
-             WHERE trip_id IS NULL OR trip_id != ?1
+             WHERE trip_id IS NULL
              ORDER BY taken_time DESC LIMIT ?2 OFFSET ?3"
         )?;
         let rows = stmt.query_map(params![trip_id, limit, offset], |row| {
@@ -1241,7 +1317,7 @@ impl Database {
     pub fn count_photos_not_in_trip(&self, trip_id: &str) -> Result<i64, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
         let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM photos WHERE trip_id IS NULL OR trip_id != ?1",
+            "SELECT COUNT(*) FROM photos WHERE trip_id IS NULL",
             params![trip_id],
             |row| row.get(0),
         )?;

@@ -300,19 +300,22 @@ pub async fn get_photo_by_id(id: String, state: State<'_, AppState>) -> Result<O
 #[tauri::command]
 pub async fn delete_photo(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let db = state.db.clone();
-    let (file_path, thumbnail_path) = tokio::task::spawn_blocking(move || db.delete_photo(&id).map_err(|e| e.to_string()))
+    let paths = tokio::task::spawn_blocking(move || db.delete_photo(&id).map_err(|e| e.to_string()))
         .await
         .map_err(|e| e.to_string())??;
 
-    // 删除应用内存储的照片副本（仅当位于 data_dir/photos 下，避免误删用户原图）
-    if let Some(fp) = &file_path {
-        if fp.starts_with(&format!("{}/photos", state.data_dir)) {
-            let _ = std::fs::remove_file(fp);
+    let thumbs_dir = state.thumbs_dir.clone();
+    let photos_dir = format!("{}/photos", state.data_dir);
+    for path in paths {
+        let Some(path) = path else { continue };
+        // 删除应用内存储的照片副本（仅当位于 data_dir/photos 下，避免误删用户原图）
+        if path.starts_with(&photos_dir) {
+            let _ = std::fs::remove_file(&path);
         }
-    }
-    // 删除缩略图
-    if let Some(tp) = &thumbnail_path {
-        let _ = std::fs::remove_file(tp);
+        // 删除缩略图与人脸缩略图（仅限应用缩略图目录）
+        if path.starts_with(&thumbs_dir) {
+            let _ = std::fs::remove_file(&path);
+        }
     }
 
     Ok(())
@@ -420,12 +423,14 @@ pub async fn geocode_photo(
 pub async fn batch_geocode(
     app: AppHandle,
     state: State<'_, AppState>,
+    force: Option<bool>,
 ) -> Result<usize, String> {
     if !state.geocoder.has_api_key() {
         return Err("未配置高德API Key".to_string());
     }
 
-    let photos = state.db.get_photos_for_geocode().map_err(|e| e.to_string())?;
+    // 默认增量模式：只解析缺少省/市/地址的照片；force=true 时刷新全部
+    let photos = state.db.get_photos_for_geocode(force.unwrap_or(false)).map_err(|e| e.to_string())?;
     let total = photos.len();
     if total == 0 {
         return Ok(0);
@@ -1380,8 +1385,13 @@ pub async fn analyze_faces(
     let processed = Arc::new(AtomicUsize::new(0));
     let db_arc = state.db.clone();
 
-    // 清除上次自动生成的标签（保留手动创建的）
-    db_arc.delete_auto_person_tags().map_err(|e| e.to_string())?;
+    // 清除上次自动生成的标签（保留手动创建的），并删除旧的人脸缩略图文件
+    let old_face_thumbs = db_arc.delete_auto_person_tags().map_err(|e| e.to_string())?;
+    for thumb in old_face_thumbs {
+        if thumb.starts_with(&thumbs_dir) {
+            let _ = std::fs::remove_file(&thumb);
+        }
+    }
 
     let thread_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get().min(3))
