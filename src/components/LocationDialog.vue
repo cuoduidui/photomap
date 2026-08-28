@@ -3,26 +3,24 @@
     <div class="dialog-card" @click.stop>
       <div class="dialog-header">
         <div class="header-icon">📍</div>
-        <h3>标注位置</h3>
+        <h3>{{ $t("locationDialog.title") }}</h3>
         <button class="close-btn" @click="emit('close')">✕</button>
       </div>
 
       <div class="dialog-body">
-        <p class="dialog-info">
-          当前选中 <strong>{{ store.selectedPhotoIds.length }}</strong> 张照片
-        </p>
+        <p class="dialog-info" v-html="$t('locationDialog.selectedCountHtml', { n: store.selectedPhotoIds.length })"></p>
 
         <!-- 搜索 -->
         <div class="section">
           <div class="section-label">
             <span class="label-dot"></span>
-            地址搜索
+            {{ $t("locationDialog.addressSearch") }}
           </div>
           <div class="search-section">
-            <input type="text" v-model="searchKeyword" placeholder="输入地址搜索..."
+            <input type="text" v-model="searchKeyword" :placeholder="$t('locationDialog.searchPlaceholder')"
               @keyup.enter="doSearch" class="search-input" />
             <button class="btn btn-primary" @click="doSearch" :disabled="!searchKeyword.trim()">
-              搜索
+              {{ $t("locationDialog.search") }}
             </button>
           </div>
         </div>
@@ -31,13 +29,13 @@
         <div class="section">
           <div class="section-label">
             <span class="label-dot"></span>
-            手动输入坐标
+            {{ $t("locationDialog.manualCoords") }}
           </div>
           <div class="coords-inputs">
-            <input type="number" step="0.000001" v-model.number="manualLat" placeholder="纬度 (如 39.9042)" class="coord-input" />
-            <input type="number" step="0.000001" v-model.number="manualLng" placeholder="经度 (如 116.4074)" class="coord-input" />
+            <input type="number" step="0.000001" v-model.number="manualLat" :placeholder="$t('locationDialog.latPlaceholder')" class="coord-input" />
+            <input type="number" step="0.000001" v-model.number="manualLng" :placeholder="$t('locationDialog.lngPlaceholder')" class="coord-input" />
             <button class="btn btn-ghost" @click="useManualCoords" :disabled="!canUseManual">
-              使用
+              {{ $t("locationDialog.use") }}
             </button>
           </div>
         </div>
@@ -49,7 +47,7 @@
             @click="selectResult(r)">
             <div class="result-main">
               <div class="result-name">{{ r.name }}</div>
-              <div class="result-addr">{{ r.address || '无详细地址' }}</div>
+              <div class="result-addr">{{ r.address || $t('locationDialog.noAddress') }}</div>
             </div>
             <span v-if="selectedResult === r" class="result-check">✓</span>
           </div>
@@ -61,7 +59,7 @@
         <div class="section">
           <div class="section-label">
             <span class="label-dot"></span>
-            快捷地点
+            {{ $t("locationDialog.quickLocations") }}
           </div>
           <div v-if="store.customLocations.length" class="quick-locations">
             <button v-for="loc in store.customLocations" :key="loc.id"
@@ -70,7 +68,7 @@
               {{ loc.name }}
             </button>
           </div>
-          <p v-else class="empty-text">暂无快捷地点</p>
+          <p v-else class="empty-text">{{ $t("locationDialog.noQuickLocations") }}</p>
         </div>
 
         <!-- 确认区域 -->
@@ -79,17 +77,17 @@
             <div class="confirm-name">{{ selectedResult.name }}</div>
             <div class="confirm-coords">
               <span class="coord-pair">
-                <span class="coord-label">纬度</span>
+                <span class="coord-label">{{ $t("locationDialog.latitude") }}</span>
                 <span class="coord-val">{{ selectedResult.latitude?.toFixed(6) }}</span>
               </span>
               <span class="coord-pair">
-                <span class="coord-label">经度</span>
+                <span class="coord-label">{{ $t("locationDialog.longitude") }}</span>
                 <span class="coord-val">{{ selectedResult.longitude?.toFixed(6) }}</span>
               </span>
             </div>
           </div>
           <button class="btn btn-accent confirm-btn" @click="confirmLocation">
-            确认标注
+            {{ $t("locationDialog.confirm") }}
           </button>
         </div>
       </div>
@@ -99,11 +97,13 @@
 
 <script setup>
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePhotoStore } from "../stores/photoStore";
 import { searchAddress } from "../utils/tauri";
 
 const emit = defineEmits(["close", "done"]);
 const store = usePhotoStore();
+const { t } = useI18n();
 
 const searchKeyword = ref("");
 const searchResults = ref([]);
@@ -122,7 +122,7 @@ const canUseManual = computed(() => {
 function useManualCoords() {
   if (!canUseManual.value) return;
   selectedResult.value = {
-    name: "手动坐标",
+    name: t("locationDialog.manualCoordsName"),
     address: `(${manualLat.value.toFixed(6)}, ${manualLng.value.toFixed(6)})`,
     latitude: manualLat.value,
     longitude: manualLng.value,
@@ -138,12 +138,12 @@ async function doSearch() {
   try {
     const results = await searchAddress(searchKeyword.value.trim());
     if (results.length === 0) {
-      searchError.value = "未找到匹配的地址";
+      searchError.value = t("locationDialog.notFound");
     } else {
       searchResults.value = results;
     }
   } catch (e) {
-    searchError.value = "搜索失败: " + e;
+    searchError.value = t("locationDialog.searchFailed", { error: e });
   }
 }
 
@@ -172,7 +172,7 @@ async function confirmLocation() {
     );
     emit("done");
   } catch (e) {
-    searchError.value = "标注失败: " + e;
+    searchError.value = t("locationDialog.markFailed", { error: e });
   }
 }
 </script>

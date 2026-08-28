@@ -7,18 +7,18 @@
       </div>
       <div class="toolbar-center">
         <button class="btn-primary" @click="triggerImportFolder" :disabled="store.loading">
-          {{ store.loading ? "处理中..." : "导入文件夹" }}
+          {{ store.loading ? $t("common.loading") : $t("app.importFolder") }}
         </button>
-        <button class="btn-secondary" @click="triggerImportFiles" :disabled="store.loading"> 选择图片 </button>
-        <button class="btn-secondary" @click="showFilterBar = !showFilterBar"> 筛选器 </button>
+        <button class="btn-secondary" @click="triggerImportFiles" :disabled="store.loading"> {{ $t("app.selectImages") }} </button>
+        <button class="btn-secondary" @click="showFilterBar = !showFilterBar"> {{ $t("app.filter") }} </button>
         <button class="btn-secondary" @click="runBatchGeocode" :disabled="!store.apiConfigured || store.geocodeProgress">
-          逆地理编码
+          {{ $t("app.reverseGeocode") }}
         </button>
-        <button class="btn-ghost" @click="showSettings = true">设置</button>
+        <button class="btn-ghost" @click="showSettings = true">{{ $t("app.settings") }}</button>
         <div class="theme-popover-wrap">
-          <button class="btn-ghost" title="换肤" @click="showThemePopover = !showThemePopover">🎨</button>
+          <button class="btn-ghost" :title="$t('app.skin')" @click="showThemePopover = !showThemePopover">🎨</button>
           <div v-if="showThemePopover" class="theme-popover" @click.stop>
-            <div class="theme-popover-title">一键换肤</div>
+            <div class="theme-popover-title">{{ $t("app.oneClickTheme") }}</div>
             <ThemeSwitcher :current="currentTheme" inline @select="onSelectTheme" />
           </div>
         </div>
@@ -27,27 +27,27 @@
         <button class="btn-ghost"
           @click="store.selectedPhotoIds.length ? (showLocationDialog = true) : null"
           :disabled="!store.selectedPhotoIds.length">
-          标注位置 ({{ store.selectedPhotoIds.length }})
+          {{ $t("app.annotateLocation") }} ({{ store.selectedPhotoIds.length }})
         </button>
       </div>
     </header>
 
     <!-- 导入进度 -->
     <div v-if="store.importProgress" class="progress-container">
-      <span v-if="store.importProgress.scanning">正在扫描文件夹... 已发现 {{ store.importProgress.total }} 张照片</span>
-      <span v-else>正在导入照片... {{ store.importProgress.done }} / {{ store.importProgress.total }}</span>
+      <span v-if="store.importProgress.scanning">{{ $t("app.scanningFolder", { n: store.importProgress.total }) }}</span>
+      <span v-else>{{ $t("app.importingPhotos", { done: store.importProgress.done, total: store.importProgress.total }) }}</span>
       <div class="progress-bar">
         <div class="fill" :style="{ width: importProgressPercent + '%' }" :class="{ indeterminate: store.importProgress.scanning }" />
       </div>
-      <button class="cancel-btn" @click="onCancelLongTask">取消</button>
+      <button class="cancel-btn" @click="onCancelLongTask">{{ $t("common.cancel") }}</button>
     </div>
     <!-- 逆地理编码进度 -->
     <div v-else-if="store.geocodeProgress" class="progress-container">
-      <span>正在逆地理编码... {{ store.geocodeProgress.done }} / {{ store.geocodeProgress.total }}</span>
+      <span>{{ $t("app.geocoding", { done: store.geocodeProgress.done, total: store.geocodeProgress.total }) }}</span>
       <div class="progress-bar">
         <div class="fill" :style="{ width: geocodeProgressPercent + '%' }" />
       </div>
-      <button class="cancel-btn" @click="onCancelLongTask">取消</button>
+      <button class="cancel-btn" @click="onCancelLongTask">{{ $t("common.cancel") }}</button>
     </div>
 
     <!-- 筛选器 -->
@@ -58,12 +58,12 @@
       <!-- 左侧可拖拽侧边栏 -->
       <aside class="sidebar" :style="{ width: sidebarWidth + 'px' }">
         <div class="sidebar-tabs">
-          <button :class="{ active: activeTab === 'location' }" @click="activeTab = 'location'">地点</button>
-          <button :class="{ active: activeTab === 'timeline' }" @click="activeTab = 'timeline'">时间</button>
-          <button :class="{ active: activeTab === 'photos' }" @click="activeTab = 'photos'">照片</button>
-          <button :class="{ active: activeTab === 'album' }" @click="activeTab = 'album'">影集</button>
-          <button :class="{ active: activeTab === 'trip' }" @click="activeTab = 'trip'">游记</button>
-          <button :class="{ active: activeTab === 'tag' }" @click="activeTab = 'tag'">标签</button>
+          <button :class="{ active: activeTab === 'location' }" @click="activeTab = 'location'">{{ $t("app.tabs.location") }}</button>
+          <button :class="{ active: activeTab === 'timeline' }" @click="activeTab = 'timeline'">{{ $t("app.tabs.timeline") }}</button>
+          <button :class="{ active: activeTab === 'photos' }" @click="activeTab = 'photos'">{{ $t("app.tabs.photos") }}</button>
+          <button :class="{ active: activeTab === 'album' }" @click="activeTab = 'album'">{{ $t("app.tabs.album") }}</button>
+          <button :class="{ active: activeTab === 'trip' }" @click="activeTab = 'trip'">{{ $t("app.tabs.trip") }}</button>
+          <button :class="{ active: activeTab === 'tag' }" @click="activeTab = 'tag'">{{ $t("app.tabs.tag") }}</button>
         </div>
         <div class="sidebar-content">
           <!-- 按地点 -->
@@ -90,11 +90,11 @@
 
     <!-- 底部状态栏 -->
     <footer class="statusbar">
-      <span>共 <strong>{{ store.stats.total }}</strong> 张照片</span>
-      <span>已定位 <strong :style="{ color: 'var(--accent)' }">{{ store.stats.located }}</strong> 张</span>
-      <span>未定位 <strong :style="{ color: 'var(--warning)' }">{{ store.stats.unlocated }}</strong> 张</span>
-      <span v-if="store.apiConfigured" class="tag" style="background: var(--success-soft); color: var(--success)">API 已配置</span>
-      <span v-else class="tag" style="background: var(--warning-soft); color: var(--warning)">API 未配置</span>
+      <span v-html="$t('app.totalPhotosHtml', { n: store.stats.total })"></span>
+      <span v-html="$t('app.locatedHtml', { n: store.stats.located })"></span>
+      <span v-html="$t('app.unlocatedHtml', { n: store.stats.unlocated })"></span>
+      <span v-if="store.apiConfigured" class="tag" style="background: var(--success-soft); color: var(--success)">{{ $t("app.apiConfigured") }}</span>
+      <span v-else class="tag" style="background: var(--warning-soft); color: var(--warning)">{{ $t("app.apiNotConfigured") }}</span>
     </footer>
 
     <!-- 标注位置弹窗 -->
@@ -111,6 +111,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { usePhotoStore } from "./stores/photoStore";
 import { debugLog, clearDebugLog, onImportProgress, onGeocodeProgress, cancelLongTask } from "./utils/tauri";
@@ -126,9 +127,10 @@ import AlbumPanel from "./components/AlbumPanel.vue";
 import TripList from "./components/TripList.vue";
 import TagPanel from "./components/TagPanel.vue";
 import ThemeSwitcher from "./components/ThemeSwitcher.vue";
-import { loadTheme, setTheme, THEMES } from "./utils/theme";
+import { loadTheme, setTheme } from "./utils/theme";
 
 const store = usePhotoStore();
+const { t } = useI18n();
 const showFilterBar = ref(false);
 const showSettings = ref(false);
 const showLocationDialog = ref(false);
@@ -155,7 +157,7 @@ const importProgressPercent = computed(() => {
 async function onCancelLongTask() {
   try {
     await cancelLongTask();
-    showToast("已请求取消，正在停止...");
+    showToast(t("app.cancelRequested"));
   } catch (e) {
     console.warn("取消失败:", e);
   }
@@ -167,51 +169,43 @@ const geocodeProgressPercent = computed(() => {
 
 async function triggerImportFolder() {
   const selected = await openDialog({
-    title: "选择照片文件夹",
+    title: t("app.selectFolderTitle"),
     directory: true,
     multiple: false,
   });
   if (!selected) return;
   try {
     const result = await store.importPhotos([selected], true);
-    const parts = [];
-    if (result.success) parts.push(`${result.success} 成功`);
-    if (result.skipped) parts.push(`${result.skipped} 重复跳过`);
-    if (result.failed) parts.push(`${result.failed} 失败`);
-    showToast(`导入完成: ${parts.join(", ")}`);
+    showToast(t("app.importResult", { success: result.success, skipped: result.skipped, failed: result.failed }));
   } catch (e) {
-    showToast("导入失败: " + e);
+    showToast(t("app.importFailed", { error: e }));
   }
 }
 
 async function triggerImportFiles() {
   const selected = await openDialog({
-    title: "选择照片",
+    title: t("app.selectPhotosTitle"),
     multiple: true,
     filters: [{
-      name: "图片文件",
+      name: t("app.imageFiles"),
       extensions: ["jpg", "jpeg", "png", "tiff", "tif", "webp"],
     }],
   });
   if (!selected || selected.length === 0) return;
   try {
     const result = await store.importPhotos(selected, false);
-    const parts = [];
-    if (result.success) parts.push(`${result.success} 成功`);
-    if (result.skipped) parts.push(`${result.skipped} 重复跳过`);
-    if (result.failed) parts.push(`${result.failed} 失败`);
-    showToast(`导入完成: ${parts.join(", ")}`);
+    showToast(t("app.importResult", { success: result.success, skipped: result.skipped, failed: result.failed }));
   } catch (e) {
-    showToast("导入失败: " + e);
+    showToast(t("app.importFailed", { error: e }));
   }
 }
 
 async function runBatchGeocode() {
   try {
     const updated = await store.runBatchGeocode();
-    showToast(`逆地理编码完成: ${updated} 张照片已更新地址`);
+    showToast(t("app.geocodeDone", { n: updated }));
   } catch (e) {
-    showToast("逆地理编码失败: " + e);
+    showToast(t("app.geocodeFailed", { error: e }));
   }
 }
 
@@ -238,20 +232,20 @@ function onLocatePhoto(photo) {
 function onMapClick(lat, lng) {
   if (store.selectedPhotoIds.length > 0) {
     store.updateLocation(store.selectedPhotoIds, lat, lng);
-    showToast(`已为 ${store.selectedPhotoIds.length} 张照片标注位置`);
+    showToast(t("app.locationMarked", { n: store.selectedPhotoIds.length }));
   }
 }
 
 function onLocationDone() {
   showLocationDialog.value = false;
   store.clearSelection();
-  showToast("位置已更新");
+  showToast(t("app.locationUpdated"));
 }
 
 async function onSelectTheme(id) {
   currentTheme.value = await setTheme(id);
   showThemePopover.value = false;
-  showToast("已切换皮肤：" + (THEMES.find((t) => t.id === id)?.name || id));
+  showToast(t("app.themeChanged", { name: t("theme." + id + ".name") }));
 }
 
 function startResize(e) {

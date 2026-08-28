@@ -4,13 +4,13 @@
     <div class="filter-bar">
       <div class="filter-tabs">
         <button class="filter-tab" :class="{ active: filter === 'all' }" @click="filter = 'all'">
-          全部 <span class="count">{{ store.photos.length }}</span>
+          {{ $t("photoList.all") }} <span class="count">{{ store.photos.length }}</span>
         </button>
         <button class="filter-tab" :class="{ active: filter === 'located' }" @click="filter = 'located'">
-          已定位 <span class="count">{{ store.stats.located }}</span>
+          {{ $t("photoList.located") }} <span class="count">{{ store.stats.located }}</span>
         </button>
         <button class="filter-tab" :class="{ active: filter === 'unlocated' }" @click="filter = 'unlocated'">
-          未定位 <span class="count">{{ store.stats.unlocated }}</span>
+          {{ $t("photoList.unlocated") }} <span class="count">{{ store.stats.unlocated }}</span>
         </button>
       </div>
       <div v-if="store.filter.city || store.filter.province" class="filter-active">
@@ -24,15 +24,15 @@
     <!-- 批量操作栏 -->
     <div v-if="store.selectedPhotoIds.length > 0" class="batch-bar">
       <div class="batch-info">
-        <span class="batch-count">已选 {{ store.selectedPhotoIds.length }} 张</span>
-        <button class="batch-clear" @click="store.clearSelection()">取消选择</button>
+        <span class="batch-count">{{ $t("photoList.selectedCount", { n: store.selectedPhotoIds.length }) }}</span>
+        <button class="batch-clear" @click="store.clearSelection()">{{ $t("photoList.clearSelection") }}</button>
       </div>
       <div class="batch-actions">
-        <button class="batch-btn locate-btn" @click="openLocationEditor" title="修改位置">
-          📍 修改位置
+        <button class="batch-btn locate-btn" @click="openLocationEditor" :title="$t('photoList.editLocation')">
+          📍 {{ $t("photoList.editLocation") }}
         </button>
-        <button class="batch-btn delete-btn" @click="batchDelete" title="删除">
-          🗑️ 删除
+        <button class="batch-btn delete-btn" @click="batchDelete" :title="$t('common.delete')">
+          🗑️ {{ $t("common.delete") }}
         </button>
       </div>
     </div>
@@ -49,10 +49,10 @@
               <span v-if="store.selectedPhotoIds.includes(p.id)">✓</span>
             </div>
             <div class="photo-actions">
-              <button v-if="p.latitude != null" class="action-btn" @click.stop="onLocate(p)" title="在地图中定位">
+              <button v-if="p.latitude != null" class="action-btn" @click.stop="onLocate(p)" :title="$t('photoList.locateInMap')">
                 📍
               </button>
-              <button class="action-btn delete" @click.stop="onDelete(p)" title="删除">
+              <button class="action-btn delete" @click.stop="onDelete(p)" :title="$t('common.delete')">
                 🗑️
               </button>
             </div>
@@ -71,10 +71,10 @@
             <div class="photo-info">
               <div class="photo-name" :title="p.file_name">{{ p.file_name }}</div>
               <div class="photo-meta">
-                <span v-if="p.latitude != null" class="meta-tag located" :title="p.address || '已定位'">
-                  📍 {{ p.city || '已定位' }}
+                <span v-if="p.latitude != null" class="meta-tag located" :title="p.address || $t('photoList.located')">
+                  📍 {{ p.city || $t("photoList.located") }}
                 </span>
-                <span v-else class="meta-tag unlocated">未定位</span>
+                <span v-else class="meta-tag unlocated">{{ $t("photoList.unlocated") }}</span>
               </div>
             </div>
           </div>
@@ -83,8 +83,8 @@
 
       <div v-if="filteredPhotos.length === 0" class="empty-state">
         <div class="empty-icon">📷</div>
-        <div class="empty-text">暂无照片</div>
-        <div class="empty-hint">点击"导入文件夹"或"选择图片"开始</div>
+        <div class="empty-text">{{ $t("photoList.noPhotos") }}</div>
+        <div class="empty-hint">{{ $t("photoList.noPhotosHint") }}</div>
       </div>
     </div>
 
@@ -92,20 +92,20 @@
     <div v-if="showLocationEditor" class="location-editor-overlay" @click="showLocationEditor = false">
       <div class="location-editor-modal" @click.stop>
         <div class="editor-header">
-          <span class="editor-title">修改位置信息</span>
+          <span class="editor-title">{{ $t("photoList.editorTitle") }}</span>
           <button class="editor-close" @click="showLocationEditor = false">✕</button>
         </div>
         <div class="editor-body">
           <div class="editor-desc">
-            将为选中的 {{ store.selectedPhotoIds.length }} 张照片设置位置
+            {{ $t("photoList.editorDesc", { n: store.selectedPhotoIds.length }) }}
           </div>
           <div class="editor-field">
-            <label class="field-label">搜索位置</label>
+            <label class="field-label">{{ $t("photoList.searchLocation") }}</label>
             <div class="search-row">
               <input type="text" v-model="searchKeyword" class="search-input" 
-                placeholder="输入地点名称搜索..." @keyup.enter="searchLocation" />
+                :placeholder="$t('photoList.searchPlaceholder')" @keyup.enter="searchLocation" />
               <button class="search-btn" @click="searchLocation" :disabled="searching">
-                {{ searching ? '搜索中...' : '搜索' }}
+                {{ searching ? $t('photoList.searching') : $t('photoList.search') }}
               </button>
             </div>
           </div>
@@ -118,29 +118,29 @@
             </div>
           </div>
           <div class="editor-field">
-            <label class="field-label">或手动输入坐标</label>
+            <label class="field-label">{{ $t("photoList.orManualCoords") }}</label>
             <div class="coord-row">
               <div class="coord-input">
-                <span class="coord-label">纬度</span>
-                <input type="number" v-model.number="latInput" step="0.000001" placeholder="如: 39.9042" />
+                <span class="coord-label">{{ $t("photoList.latitude") }}</span>
+                <input type="number" v-model.number="latInput" step="0.000001" :placeholder="$t('photoList.latPlaceholder')" />
               </div>
               <div class="coord-input">
-                <span class="coord-label">经度</span>
-                <input type="number" v-model.number="lngInput" step="0.000001" placeholder="如: 116.4074" />
+                <span class="coord-label">{{ $t("photoList.longitude") }}</span>
+                <input type="number" v-model.number="lngInput" step="0.000001" :placeholder="$t('photoList.lngPlaceholder')" />
               </div>
             </div>
           </div>
           <div class="editor-field">
-            <label class="field-label">地址描述（可选）</label>
+            <label class="field-label">{{ $t("photoList.addressOptional") }}</label>
             <input type="text" v-model="addressInput" class="address-input" 
-              placeholder="如: 北京市东城区天安门广场" />
+              :placeholder="$t('photoList.addressPlaceholder')" />
           </div>
         </div>
         <div class="editor-footer">
-          <button class="cancel-btn" @click="showLocationEditor = false">取消</button>
+          <button class="cancel-btn" @click="showLocationEditor = false">{{ $t("common.cancel") }}</button>
           <button class="confirm-btn" @click="confirmLocation" 
             :disabled="!canConfirm || saving">
-            {{ saving ? '保存中...' : '确认修改' }}
+            {{ saving ? $t('photoList.saving') : $t('photoList.confirmChange') }}
           </button>
         </div>
       </div>
@@ -150,11 +150,13 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePhotoStore } from "../stores/photoStore";
 import { getImageBase64, searchAddress } from "../utils/tauri";
 
 const emit = defineEmits(["locate-photo", "photo-click"]);
 const store = usePhotoStore();
+const { t } = useI18n();
 const filter = ref("all");
 const thumbMap = ref(new Map());
 const thumbFailed = ref(new Set());
@@ -327,7 +329,7 @@ function onLocate(photo) {
 }
 
 async function onDelete(photo) {
-  if (!confirm(`确定要删除 "${photo.file_name}" 吗？`)) return;
+  if (!confirm(t("photoList.deleteConfirm", { name: photo.file_name }))) return;
   try {
     await store.deletePhotos([photo.id]);
   } catch (e) {
@@ -337,7 +339,7 @@ async function onDelete(photo) {
 
 async function batchDelete() {
   const count = store.selectedPhotoIds.length;
-  if (!confirm(`确定要删除选中的 ${count} 张照片吗？此操作不可撤销。`)) return;
+  if (!confirm(t("photoList.batchDeleteConfirm", { n: count }))) return;
   try {
     await store.deletePhotos([...store.selectedPhotoIds]);
   } catch (e) {
@@ -388,7 +390,7 @@ async function confirmLocation() {
     store.clearSelection();
   } catch (e) {
     console.warn("修改位置失败:", e);
-    alert("修改位置失败: " + e);
+    alert(t("photoList.updateFailed", { error: e }));
   } finally {
     saving.value = false;
   }
@@ -402,7 +404,7 @@ function formatPhotoDate(photo) {
   if (!photo.taken_time) return "";
   const d = new Date(photo.taken_time);
   if (isNaN(d.getTime())) return "";
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
+  return t("photoList.dateShort", { m: d.getMonth() + 1, d: d.getDate() });
 }
 
 // 更新容器尺寸

@@ -15,11 +15,11 @@
     "icon": ["icons/icon.ico"],
     "windows": {
       "wix": {
-        "language": "zh-CN"
+        "language": "en-US"
       },
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["SimpChinese"],
+        "languages": ["SimpChinese", "English", "Japanese", "French", "Korean", "German", "Russian"],
         "displayLanguageSelector": false
       }
     }
@@ -27,7 +27,7 @@
   "app": {
     "windows": [
       {
-        "title": "PhotoMap - 智能相册地图管家",
+        "title": "PhotoMap",
         "width": 1280,
         "height": 800,
         "minWidth": 900,

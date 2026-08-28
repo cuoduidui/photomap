@@ -5,11 +5,11 @@
       :key="t.id"
       class="theme-swatch"
       :class="{ active: current === t.id }"
-      :title="t.name"
+      :title="$t('theme.' + t.id + '.name')"
       @click="$emit('select', t.id)"
     >
       <span class="swatch-dot" :style="{ background: t.preview }" />
-      <span class="swatch-name">{{ t.name }}</span>
+      <span class="swatch-name">{{ $t("theme." + t.id + ".name") }}</span>
       <span v-if="current === t.id" class="swatch-check">✓</span>
     </button>
   </div>

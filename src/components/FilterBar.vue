@@ -1,32 +1,32 @@
 <template>
   <div class="filter-bar">
     <div class="filter-group">
-      <label>开始日期</label>
+      <label>{{ $t("filter.startDate") }}</label>
       <input type="date" v-model="store.filter.startDate" />
     </div>
     <div class="filter-group">
-      <label>结束日期</label>
+      <label>{{ $t("filter.endDate") }}</label>
       <input type="date" v-model="store.filter.endDate" />
     </div>
     <div class="filter-group">
-      <label>省份</label>
+      <label>{{ $t("filter.province") }}</label>
       <select v-model="store.filter.province" @change="onProvinceChange">
-        <option :value="null">全部</option>
+        <option :value="null">{{ $t("common.all") }}</option>
         <option v-for="p in provinces" :key="p" :value="p">{{ p }}</option>
       </select>
     </div>
     <div class="filter-group">
-      <label>城市</label>
+      <label>{{ $t("filter.city") }}</label>
       <select v-model="store.filter.city" :disabled="!store.filter.province">
-        <option :value="null">全部</option>
+        <option :value="null">{{ $t("common.all") }}</option>
         <option v-for="c in cities" :key="c" :value="c">{{ c }}</option>
       </select>
     </div>
     <div class="filter-group">
-      <label>关键词</label>
-      <input type="text" v-model="store.filter.keyword" placeholder="文件名/地址" />
+      <label>{{ $t("filter.keyword") }}</label>
+      <input type="text" v-model="store.filter.keyword" :placeholder="$t('filter.keywordPlaceholder')" />
     </div>
-    <button class="btn-ghost" @click="reset">重置</button>
+    <button class="btn-ghost" @click="reset">{{ $t("common.reset") }}</button>
     <button class="btn-ghost" @click="emit('close')">✕</button>
   </div>
 </template>

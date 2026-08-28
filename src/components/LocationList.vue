@@ -1,8 +1,8 @@
 <template>
   <div class="location-list">
     <div class="loc-header">
-      <span class="loc-title">地点分类树（省 → 市 → 区县 → 地址）</span>
-      <button v-if="hasActiveFilter" class="clear-btn" @click="clearFilter">清除筛选</button>
+      <span class="loc-title">{{ $t("location.title") }}</span>
+      <button v-if="hasActiveFilter" class="clear-btn" @click="clearFilter">{{ $t("location.clearFilter") }}</button>
     </div>
 
     <div class="loc-content">
@@ -15,14 +15,14 @@
 
       <div v-if="locationTree.length === 0 && store.photos.length > 0" class="empty-state">
         <div class="empty-icon">🗺️</div>
-        <div class="empty-text">暂无地点信息</div>
-        <div class="empty-hint">导入带GPS的照片或手动标注位置</div>
+        <div class="empty-text">{{ $t("location.noLocationInfo") }}</div>
+        <div class="empty-hint">{{ $t("location.noLocationHint") }}</div>
       </div>
 
       <div v-if="store.photos.length === 0" class="empty-state">
         <div class="empty-icon">📷</div>
-        <div class="empty-text">暂无照片</div>
-        <div class="empty-hint">导入照片后按地点浏览</div>
+        <div class="empty-text">{{ $t("location.noPhotos") }}</div>
+        <div class="empty-hint">{{ $t("location.noPhotosHint") }}</div>
       </div>
     </div>
   </div>
@@ -30,10 +30,12 @@
 
 <script setup>
 import { computed, watch, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePhotoStore } from "../stores/photoStore";
 import LocationTreeNode from "./LocationTreeNode.vue";
 
 const store = usePhotoStore();
+const { t } = useI18n();
 const emit = defineEmits(["focus-location"]);
 const isGeocoding = ref(false);
 
@@ -187,11 +189,19 @@ const locationTree = computed(() => {
         continue;
       }
       const kind = m.kind || "unknown";
+      const displayName = name === "坐标地点"
+        ? t("location.coordPlaces")
+        : name === "未知城市"
+          ? t("location.unknownCity")
+          : kind === "coord" && name.startsWith("坐标 ")
+            ? t("location.coordLabel", { lat: name.slice(3).split(", ")[0], lng: name.slice(3).split(", ")[1] })
+            : name;
       nodes.push({
         kind,
         key,
-        name: kind === "address" ? (m.addrStrip || m.addrFull || name) : name,
-        title: kind === "address" ? (m.addrFull || name) : name,
+        rawName: name,
+        name: kind === "address" ? (m.addrStrip || m.addrFull || name) : displayName,
+        title: kind === "address" ? (m.addrFull || name) : displayName,
         province: m.province || name,
         provinceOnly: kind === "city" && name === "未知城市",
         count: v.count,
@@ -232,7 +242,7 @@ const activeKey = computed(() => {
         if (f.city == null) {
           if (n.kind === "province") return n.key;
         } else if (n.kind !== "province" && n.kind !== "coord") {
-          const val = n.kind === "address" ? n.addrFull : n.name;
+          const val = n.kind === "address" ? n.addrFull : n.rawName;
           if (val === f.city) return n.key;
         }
       }
@@ -272,7 +282,7 @@ function onSelect(node) {
       store.setFilter({ province: null, city: null, lat: node.coord.lat, lng: node.coord.lng });
     }
   } else {
-    const cityVal = node.kind === "address" ? node.addrFull : (node.provinceOnly ? null : node.name);
+    const cityVal = node.kind === "address" ? node.addrFull : (node.provinceOnly ? null : node.rawName);
     if (store.filter.province === node.province && store.filter.city === cityVal) {
       store.setFilter({ province: null, city: null, lat: null, lng: null });
     } else {

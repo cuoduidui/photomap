@@ -1,13 +1,13 @@
 <template>
   <div class="trip-list">
     <div class="trip-header">
-      <span class="trip-title">旅行回忆</span>
+      <span class="trip-title">{{ $t("trip.title") }}</span>
       <div class="header-actions">
         <button class="new-trip-btn" @click="openCreateModal">
-          + 新建
+          + {{ $t("trip.new") }}
         </button>
         <button class="gen-btn" @click="generateTrips" :disabled="generating">
-          {{ generating ? "生成中..." : "生成旅行" }}
+          {{ generating ? $t('trip.generating') : $t('trip.generateTrips') }}
         </button>
       </div>
     </div>
@@ -15,13 +15,13 @@
     <div class="trip-content">
       <div v-if="trips.length === 0 && !generating" class="empty-state">
         <div class="empty-icon">✈️</div>
-        <div class="empty-text">暂无旅行记录</div>
-        <div class="empty-hint">导入照片后点击「生成旅行」自动识别旅行</div>
+        <div class="empty-text">{{ $t("trip.noTrips") }}</div>
+        <div class="empty-hint">{{ $t("trip.noTripsHint") }}</div>
       </div>
 
       <div v-else-if="generating" class="loading-state">
         <div class="loading-spinner"></div>
-        <div class="loading-text">正在分析照片时空数据...</div>
+        <div class="loading-text">{{ $t("trip.analyzing") }}</div>
       </div>
 
       <div v-for="trip in filteredTrips" :key="trip.id" class="trip-card"
@@ -32,9 +32,9 @@
             <span>{{ trip.title.charAt(0) }}</span>
           </div>
           <div class="trip-badge">
-            <span>{{ trip.photo_count }} 张</span>
+            <span>{{ $t("trip.photosCount", { n: trip.photo_count }) }}</span>
           </div>
-          <button v-if="trip.is_manual" class="manual-badge" title="手动创建，自动生成时保留">
+          <button v-if="trip.is_manual" class="manual-badge" :title="$t('trip.manualBadge')">
             📌
           </button>
         </div>
@@ -47,13 +47,13 @@
           <div class="trip-card-actions" @click.stop>
             <button v-if="!trip.journal_text" class="card-ai-btn"
               @click="quickGenerateJournal(trip)">
-              ✨ AI 写游记
+              ✨ {{ $t("trip.aiWrite") }}
             </button>
             <button v-else class="card-view-btn"
               @click="expandTrip(trip)">
-              📝 查看游记
+              📝 {{ $t("trip.viewJournal") }}
             </button>
-            <button class="card-delete-btn" @click="deleteTrip(trip)" title="删除游记">
+            <button class="card-delete-btn" @click="deleteTrip(trip)" :title="$t('trip.deleteTrip')">
               🗑️
             </button>
           </div>
@@ -71,20 +71,20 @@
         <div class="detail-actions">
           <button v-if="!aiGenerating && !showJournalEditor" class="detail-journal-btn ai-btn"
             @click="generateAiJournalText">
-            <span>✨ AI 生成游记</span>
+            <span>✨ {{ $t("trip.aiGenerateJournal") }}</span>
           </button>
           <button v-if="!aiGenerating" class="detail-journal-btn"
             @click="showJournalEditor = !showJournalEditor">
-            {{ activeTrip.journal_text ? '编辑游记' : '写游记' }}
+            {{ activeTrip.journal_text ? $t('trip.editJournal') : $t('trip.writeJournal') }}
           </button>
         </div>
 
         <div class="detail-meta">
           <span v-if="activeTrip.cities">{{ formatCities(activeTrip) }}</span>
-          <span> · {{ tripPhotos.length }} 张照片</span>
-          <span v-if="activeTrip.journal_type === 'ai_generated'" class="journal-source">AI 生成</span>
-          <span v-else-if="activeTrip.journal_type === 'ai_polished'" class="journal-source polished">AI 润色</span>
-          <span v-else-if="activeTrip.journal_text" class="journal-source">手写</span>
+          <span> · {{ $t("trip.photosInTrip", { n: tripPhotos.length }) }}</span>
+          <span v-if="activeTrip.journal_type === 'ai_generated'" class="journal-source">{{ $t("trip.aiGenerated") }}</span>
+          <span v-else-if="activeTrip.journal_type === 'ai_polished'" class="journal-source polished">{{ $t("trip.aiPolished") }}</span>
+          <span v-else-if="activeTrip.journal_text" class="journal-source">{{ $t("trip.handwritten") }}</span>
         </div>
 
         <!-- AI 生成中 -->
@@ -101,17 +101,17 @@
           <textarea
             v-model="journalText"
             class="journal-textarea"
-            placeholder="写下你的旅行回忆..."
+            :placeholder="$t('trip.journalPlaceholder')"
             rows="8"
           ></textarea>
           <div class="journal-toolbar">
-            <span class="char-count">{{ journalText.length }} 字</span>
+            <span class="char-count">{{ $t("trip.charCount", { n: journalText.length }) }}</span>
             <div class="toolbar-btns">
               <button class="polish-btn" @click="polishJournalText" :disabled="aiGenerating || !journalText.trim()">
-                <span v-if="aiGenerating && polishMode">✨ 润色中...</span>
-                <span v-else>✨ AI 润色</span>
+                <span v-if="aiGenerating && polishMode">✨ {{ $t("trip.polishing") }}</span>
+                <span v-else>✨ {{ $t("trip.aiPolish") }}</span>
               </button>
-              <button class="save-btn" @click="saveJournalText">保存游记</button>
+              <button class="save-btn" @click="saveJournalText">{{ $t("trip.saveJournal") }}</button>
             </div>
           </div>
           <!-- AI 润色中提示 -->
@@ -130,18 +130,18 @@
 
         <!-- 空状态 -->
         <div v-else class="journal-empty">
-          <span>还没有游记，点击「AI 生成游记」或「写游记」开始</span>
+          <span>{{ $t("trip.journalEmpty") }}</span>
         </div>
 
         <!-- 照片列表头部 -->
         <div class="photos-header">
-          <span class="photos-title">照片 ({{ tripPhotos.length }} 张)</span>
+          <span class="photos-title">{{ $t("trip.photosTitle", { n: tripPhotos.length }) }}</span>
           <div class="photos-actions">
             <button class="add-photo-btn" @click="openPhotoSelector">
-              + 添加照片
+              + {{ $t("trip.addPhotos") }}
             </button>
             <button class="slideshow-btn" @click="openSlideshowModal" :disabled="tripPhotos.length === 0">
-              🎬 生成影集
+              🎬 {{ $t("trip.generateSlideshow") }}
             </button>
           </div>
         </div>
@@ -164,11 +164,11 @@
               </div>
             </div>
             <button v-if="journalRefs.has((photoPage - 1) * PHOTO_PAGE_SIZE + gi)" class="journal-link-btn"
-              :title="'在游记中定位这张照片（编号 ' + ((photoPage - 1) * PHOTO_PAGE_SIZE + gi + 1) + '）'"
+              :title="$t('trip.locateInJournal', { n: (photoPage - 1) * PHOTO_PAGE_SIZE + gi + 1 })"
               @click.stop="scrollToJournalPhoto((photoPage - 1) * PHOTO_PAGE_SIZE + gi)">
               📖 {{ (photoPage - 1) * PHOTO_PAGE_SIZE + gi + 1 }}
             </button>
-            <button class="remove-photo-btn" @click.stop="removePhotoFromTrip(photo)" title="从游记中移除">
+            <button class="remove-photo-btn" @click.stop="removePhotoFromTrip(photo)" :title="$t('trip.removeFromTrip')">
               ✕
             </button>
           </div>
@@ -177,19 +177,19 @@
         <!-- 分页 -->
         <div v-if="totalPhotoPages > 1" class="photo-pagination">
           <button class="page-btn" @click="prevPhotoPage" :disabled="photoPage === 1">
-            ‹ 上一页
+            {{ $t("trip.prevPage") }}
           </button>
           <span class="page-info">
             {{ photoPage }} / {{ totalPhotoPages }}
           </span>
           <button class="page-btn" @click="nextPhotoPage" :disabled="photoPage === totalPhotoPages">
-            下一页 ›
+            {{ $t("trip.nextPage") }}
           </button>
         </div>
 
         <!-- 地图按钮 -->
         <button class="detail-map-btn" @click="showOnMap">
-          在地图上查看旅行轨迹
+          {{ $t("trip.viewRoute") }}
         </button>
       </div>
     </div>
@@ -198,12 +198,12 @@
     <div v-if="showPhotoSelector" class="photo-selector-overlay" @click="showPhotoSelector = false">
       <div class="photo-selector-modal" @click.stop>
         <div class="selector-header">
-          <span class="selector-title">选择照片添加到游记</span>
+          <span class="selector-title">{{ $t("trip.selectorTitle") }}</span>
           <button class="selector-close" @click="showPhotoSelector = false">✕</button>
         </div>
 
         <div class="selector-stats">
-          已选 {{ selectedPhotoIds.size }} 张 / 可选 {{ availableTotal }} 张
+          {{ $t("trip.selectedCount", { n: selectedPhotoIds.size, m: availableTotal }) }}
         </div>
 
         <div class="selector-photos">
@@ -228,33 +228,33 @@
           </div>
           <div v-if="availableLoading" class="selector-loading">
             <div class="loading-spinner"></div>
-            <span>加载中...</span>
+            <span>{{ $t("trip.loading") }}</span>
           </div>
         </div>
 
         <!-- 分页 -->
         <div v-if="availableTotalPages > 1" class="selector-pagination">
           <button class="page-btn" @click="prevAvailablePage" :disabled="availablePage === 1">
-            ‹ 上一页
+            {{ $t("trip.prevPage") }}
           </button>
           <span class="page-info">
             {{ availablePage }} / {{ availableTotalPages }}
           </span>
           <button class="page-btn" @click="nextAvailablePage" :disabled="availablePage === availableTotalPages">
-            下一页 ›
+            {{ $t("trip.nextPage") }}
           </button>
         </div>
 
         <div class="selector-footer">
           <button class="select-all-btn" @click="toggleSelectAll">
-            {{ isAllSelected ? '取消全选' : '全选当前页' }}
+            {{ isAllSelected ? $t('trip.clearAll') : $t('trip.selectAll') }}
           </button>
           <div class="footer-actions">
-            <button class="cancel-btn" @click="showPhotoSelector = false">取消</button>
+            <button class="cancel-btn" @click="showPhotoSelector = false">{{ $t("common.cancel") }}</button>
             <button class="confirm-btn" 
               @click="confirmAddPhotos" 
               :disabled="selectedPhotoIds.size === 0 || addingPhotos">
-              {{ addingPhotos ? '添加中...' : `添加 ${selectedPhotoIds.size} 张照片` }}
+              {{ addingPhotos ? $t('trip.adding') : $t('trip.addNPhotos', { n: selectedPhotoIds.size }) }}
             </button>
           </div>
         </div>
@@ -265,34 +265,34 @@
     <div v-if="showCreateModal" class="create-modal-overlay" @click="showCreateModal = false">
       <div class="create-modal" @click.stop>
         <div class="create-header">
-          <span class="create-title">新建游记</span>
+          <span class="create-title">{{ $t("trip.createTitle") }}</span>
           <button class="create-close" @click="showCreateModal = false">✕</button>
         </div>
         <div class="create-body">
           <div class="form-item">
-            <label class="form-label">游记标题</label>
+            <label class="form-label">{{ $t("trip.tripTitleLabel") }}</label>
             <input v-model="newTripTitle" class="form-input" 
-              placeholder="例如：我的上海之旅" maxlength="50" />
+              :placeholder="$t('trip.titlePlaceholder')" maxlength="50" />
           </div>
           <div class="form-row">
             <div class="form-item">
-              <label class="form-label">开始日期</label>
+              <label class="form-label">{{ $t("trip.startDate") }}</label>
               <input v-model="newTripStart" type="date" class="form-input" />
             </div>
             <div class="form-item">
-              <label class="form-label">结束日期</label>
+              <label class="form-label">{{ $t("trip.endDate") }}</label>
               <input v-model="newTripEnd" type="date" class="form-input" />
             </div>
           </div>
           <p class="form-hint">
-            💡 创建后可以在游记中添加照片，手动创建的游记在「生成旅行」时会被保留
+            💡 {{ $t("trip.createHint") }}
           </p>
         </div>
         <div class="create-footer">
-          <button class="cancel-btn" @click="showCreateModal = false">取消</button>
+          <button class="cancel-btn" @click="showCreateModal = false">{{ $t("common.cancel") }}</button>
           <button class="confirm-btn" @click="confirmCreateTrip" 
             :disabled="!newTripTitle.trim() || creatingTrip">
-            {{ creatingTrip ? '创建中...' : '创建游记' }}
+            {{ creatingTrip ? $t('trip.creating') : $t('trip.createTrip') }}
           </button>
         </div>
       </div>
@@ -302,44 +302,44 @@
     <div v-if="showSlideshowModal" class="slideshow-modal-overlay" @click="showSlideshowModal = false">
       <div class="slideshow-modal" @click.stop>
         <div class="slideshow-header">
-          <span class="slideshow-title">🎬 AI 影集生成</span>
+          <span class="slideshow-title">🎬 {{ $t("trip.slideshowTitle") }}</span>
           <button class="slideshow-close" @click="closeSlideshowModal">✕</button>
         </div>
 
         <div v-if="!slideshowGenerating && !slideshowResult" class="slideshow-body">
           <!-- 影集标题 -->
           <div class="form-item">
-            <label class="form-label">影集标题</label>
+            <label class="form-label">{{ $t("trip.slideshowTitleLabel") }}</label>
             <input v-model="slideshowTitle" class="form-input" 
-              placeholder="例如：难忘的三亚之旅" maxlength="50" />
+              :placeholder="$t('trip.slideshowTitlePlaceholder')" maxlength="50" />
           </div>
 
           <!-- 旁白文案 -->
           <div class="form-item">
             <div class="form-label-row">
-              <label class="form-label">旁白文案</label>
+              <label class="form-label">{{ $t("trip.narrationLabel") }}</label>
               <button class="ai-gen-narration-btn" @click="aiGenerateNarration" :disabled="aiNarrationGenerating || tripPhotos.length === 0">
-                <span v-if="aiNarrationGenerating">生成中...</span>
-                <span v-else>✨ AI 生成旁白</span>
+                <span v-if="aiNarrationGenerating">{{ $t("trip.generating") }}</span>
+                <span v-else>✨ {{ $t("trip.aiGenerateNarration") }}</span>
               </button>
             </div>
             <textarea
               v-model="slideshowNarration"
               class="narration-textarea"
-              placeholder="写下你的旅行旁白，或让 AI 帮你生成..."
+              :placeholder="$t('trip.narrationPlaceholder')"
               rows="5"
             ></textarea>
             <div class="narration-hint">
-              {{ slideshowNarration.length }} 字 · 旁白会在视频中以文字形式呈现
+              {{ $t("trip.narrationHint", { n: slideshowNarration.length }) }}
             </div>
           </div>
 
           <!-- 参数配置 -->
           <div class="form-item">
-            <label class="form-label">视频参数</label>
+            <label class="form-label">{{ $t("trip.videoParams") }}</label>
             <div class="params-grid">
               <div class="param-item">
-                <span class="param-label">分辨率</span>
+                <span class="param-label">{{ $t("trip.resolution") }}</span>
                 <select v-model="slideshowResolution" class="param-select">
                   <option value="1080p">1080p (1920×1080)</option>
                   <option value="720p">720p (1280×720)</option>
@@ -347,29 +347,29 @@
                 </select>
               </div>
               <div class="param-item">
-                <span class="param-label">照片时长</span>
+                <span class="param-label">{{ $t("trip.photoDuration") }}</span>
                 <select v-model="slideshowPhotoDuration" class="param-select">
-                  <option :value="2">2 秒</option>
-                  <option :value="3">3 秒</option>
-                  <option :value="4">4 秒</option>
-                  <option :value="5">5 秒</option>
+                  <option :value="2">{{ $t("trip.seconds", { n: 2 }) }}</option>
+                  <option :value="3">{{ $t("trip.seconds", { n: 3 }) }}</option>
+                  <option :value="4">{{ $t("trip.seconds", { n: 4 }) }}</option>
+                  <option :value="5">{{ $t("trip.seconds", { n: 5 }) }}</option>
                 </select>
               </div>
               <div class="param-item">
-                <span class="param-label">转场时长</span>
+                <span class="param-label">{{ $t("trip.transitionDuration") }}</span>
                 <select v-model="slideshowTransition" class="param-select">
-                  <option :value="0.5">0.5 秒</option>
-                  <option :value="1">1 秒</option>
-                  <option :value="1.5">1.5 秒</option>
-                  <option :value="2">2 秒</option>
+                  <option :value="0.5">{{ $t("trip.seconds", { n: 0.5 }) }}</option>
+                  <option :value="1">{{ $t("trip.seconds", { n: 1 }) }}</option>
+                  <option :value="1.5">{{ $t("trip.seconds", { n: 1.5 }) }}</option>
+                  <option :value="2">{{ $t("trip.seconds", { n: 2 }) }}</option>
                 </select>
               </div>
               <div class="param-item">
-                <span class="param-label">风格</span>
+                <span class="param-label">{{ $t("trip.style") }}</span>
                 <select v-model="slideshowStyle" class="param-select">
-                  <option value="realistic">写实风格</option>
-                  <option value="cinematic">电影感</option>
-                  <option value="warm">温暖怀旧</option>
+                  <option value="realistic">{{ $t("trip.styleRealistic") }}</option>
+                  <option value="cinematic">{{ $t("trip.styleCinematic") }}</option>
+                  <option value="warm">{{ $t("trip.styleWarm") }}</option>
                 </select>
               </div>
             </div>
@@ -377,29 +377,29 @@
 
           <!-- 背景音乐 -->
           <div class="form-item">
-            <label class="form-label">背景音乐（可选）</label>
+            <label class="form-label">{{ $t("trip.bgMusic") }}</label>
             <div class="music-selector">
               <input v-model="slideshowMusicPath" class="form-input music-input" 
-                placeholder="选择音乐文件..." readonly />
+                :placeholder="$t('trip.musicPlaceholder')" readonly />
               <button class="select-music-btn" @click="selectMusicFile">
-                选择文件
+                {{ $t("trip.chooseFile") }}
               </button>
             </div>
             <div v-if="slideshowMusicPath" class="music-clear">
-              <button @click="slideshowMusicPath = ''">清除音乐</button>
+              <button @click="slideshowMusicPath = ''">{{ $t("trip.clearMusic") }}</button>
             </div>
           </div>
 
           <div class="slideshow-info">
-            <span>📷 共 {{ tripPhotos.length }} 张照片</span>
-            <span>⏱️ 预计时长 {{ estimatedDuration }} 秒</span>
+            <span>📷 {{ $t("trip.photosTotal", { n: tripPhotos.length }) }}</span>
+            <span>⏱️ {{ $t("trip.estimatedDuration", { n: estimatedDuration }) }}</span>
           </div>
         </div>
 
         <!-- 生成中 -->
         <div v-if="slideshowGenerating" class="slideshow-generating">
           <div class="generating-icon">🎬</div>
-          <div class="generating-title">正在生成影集...</div>
+          <div class="generating-title">{{ $t("trip.generatingSlideshow") }}</div>
           <div class="generating-progress-bar">
             <div class="progress-fill" :style="{ width: slideshowProgress + '%' }"></div>
           </div>
@@ -412,23 +412,23 @@
         <!-- 生成结果 -->
         <div v-if="slideshowResult" class="slideshow-result">
           <div class="result-icon">✅</div>
-          <div class="result-title">影集生成完成！</div>
+          <div class="result-title">{{ $t("trip.slideshowDone") }}</div>
           <div class="result-path">{{ slideshowResult }}</div>
           <div class="result-actions">
             <button class="result-btn primary" @click="openSlideshowFolder">
-              📂 打开所在文件夹
+              📂 {{ $t("trip.openFolder") }}
             </button>
             <button class="result-btn" @click="resetSlideshow">
-              重新生成
+              {{ $t("trip.regenerate") }}
             </button>
           </div>
         </div>
 
         <div v-if="!slideshowGenerating && !slideshowResult" class="slideshow-footer">
-          <button class="cancel-btn" @click="showSlideshowModal = false">取消</button>
+          <button class="cancel-btn" @click="showSlideshowModal = false">{{ $t("common.cancel") }}</button>
           <button class="confirm-btn" @click="startGenerateSlideshow" 
             :disabled="tripPhotos.length === 0 || slideshowGenerating">
-            {{ slideshowGenerating ? '生成中...' : '开始生成' }}
+            {{ slideshowGenerating ? $t('trip.generating') : $t('trip.startGenerate') }}
           </button>
         </div>
       </div>
@@ -445,12 +445,16 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePhotoStore } from "../stores/photoStore";
 import { getTripPhotos, saveJournal, getImageBase64, generateAiJournal, polishAiJournal, onAiJournalProgress, addPhotosToTrip, removePhotosFromTrip, getPhotosNotInTrip, createTrip, deleteTrip as deleteTripApi, generateSlideshow, onSlideshowProgress, openFileLocation } from "../utils/tauri";
+import { translateProgressText } from "../i18n/backendErrors";
+import { getLocale } from "../i18n";
 import PhotoViewer from "./PhotoViewer.vue";
 
 const emit = defineEmits(["photo-click", "focus-location"]);
 const store = usePhotoStore();
+const { t } = useI18n();
 
 const trips = ref([]);
 const generating = ref(false);
@@ -563,7 +567,7 @@ onMounted(async () => {
   loadCovers();
   unlistenAiProgress = await onAiJournalProgress((data) => {
     if (data.type === "status") {
-      aiStatusText.value = data.text;
+      aiStatusText.value = translateProgressText(data.text);
     } else if (data.type === "chunk") {
       aiStreamText.value += data.text;
     } else if (data.type === "done") {
@@ -640,9 +644,9 @@ async function generateAiJournalText() {
   if (!activeTrip.value || aiGenerating.value) return;
   aiGenerating.value = true;
   aiStreamText.value = "";
-  aiStatusText.value = "准备中...";
+  aiStatusText.value = t("trip.statusPreparing");
   try {
-    const result = await generateAiJournal(activeTrip.value.id);
+    const result = await generateAiJournal(activeTrip.value.id, getLocale());
     activeTrip.value.journal_text = result;
     activeTrip.value.journal_type = "ai_generated";
     journalText.value = result;
@@ -654,7 +658,7 @@ async function generateAiJournalText() {
     }
   } catch (e) {
     console.error("AI 生成失败:", e);
-    aiStatusText.value = "生成失败: " + e;
+    aiStatusText.value = t("trip.aiGenerateFailed", { error: e });
   } finally {
     aiGenerating.value = false;
   }
@@ -672,17 +676,17 @@ async function polishJournalText() {
   polishMode.value = true;
   aiGenerating.value = true;
   aiStreamText.value = "";
-  aiStatusText.value = "准备中...";
+  aiStatusText.value = t("trip.statusPreparing");
 
   try {
-    const result = await polishAiJournal(activeTrip.value.id, journalText.value);
+    const result = await polishAiJournal(activeTrip.value.id, journalText.value, getLocale());
     journalText.value = result;
     activeTrip.value.journal_text = result;
     activeTrip.value.journal_type = "ai_polished";
     await store.loadTrips();
   } catch (e) {
     console.error("AI 润色失败:", e);
-    aiStatusText.value = "润色失败: " + e;
+    aiStatusText.value = t("trip.polishFailed", { error: e });
   } finally {
     aiGenerating.value = false;
     polishMode.value = false;
@@ -766,7 +770,7 @@ function renderJournal(text) {
   // 把 [photo:N] 替换为图片占位符，用 span 标记，后续用 JS 填充
   let html = escaped.replace(/\[photo:(\d+)\]/gi, (_, num) => {
     const idx = parseInt(num) - 1;
-    return `<span class="journal-photo-placeholder" data-idx="${idx}">📷 照片 ${num}</span>`;
+    return `<span class="journal-photo-placeholder" data-idx="${idx}">📷 ${t("trip.photoPlaceholder", { n: num })}</span>`;
   });
 
   return html.replace(/\n/g, "<br>");
@@ -793,10 +797,10 @@ async function loadJournalPhotos() {
           div.className = "journal-photo";
           div.dataset.idx = idx;
           div.innerHTML = `
-            <img src="${b64}" alt="照片${idx + 1}" />
+            <img src="${b64}" alt="${t("trip.altPhoto", { n: idx + 1 })}" />
             <div class="journal-photo-caption">
               <span class="journal-photo-num">📷 ${idx + 1} / ${tripPhotos.value.length}</span>
-              <span class="journal-locate-btn" title="在下方照片列表中定位这张照片">⬇ 定位到照片列表</span>
+              <span class="journal-locate-btn" title="${t("trip.locateToPhotoList")}">⬇ ${t("trip.locateToPhotoList")}</span>
             </div>
           `;
           div.addEventListener("click", () => {
@@ -975,7 +979,7 @@ async function confirmAddPhotos() {
     showPhotoSelector.value = false;
   } catch (e) {
     console.error("添加照片失败:", e);
-    alert("添加照片失败: " + e);
+    alert(t("trip.addFailed", { error: e }));
   } finally {
     addingPhotos.value = false;
   }
@@ -984,7 +988,7 @@ async function confirmAddPhotos() {
 // 从游记移除照片
 async function removePhotoFromTrip(photo) {
   if (!activeTrip.value) return;
-  if (!confirm(`确定要从游记中移除「${photo.file_name}」吗？`)) return;
+  if (!confirm(t("trip.removePhotoConfirm", { name: photo.file_name }))) return;
   try {
     await removePhotosFromTrip(activeTrip.value.id, [photo.id]);
     // 刷新游记照片列表
@@ -1002,7 +1006,7 @@ async function removePhotoFromTrip(photo) {
     loadCovers();
   } catch (e) {
     console.error("移除照片失败:", e);
-    alert("移除照片失败: " + e);
+    alert(t("trip.removeFailed", { error: e }));
   }
 }
 
@@ -1041,7 +1045,7 @@ async function confirmCreateTrip() {
     expandTrip(newTrip);
   } catch (e) {
     console.error("创建游记失败:", e);
-    alert("创建游记失败: " + e);
+    alert(t("trip.createFailed", { error: e }));
   } finally {
     creatingTrip.value = false;
   }
@@ -1049,7 +1053,7 @@ async function confirmCreateTrip() {
 
 // 删除游记
 async function deleteTrip(trip) {
-  if (!confirm(`确定要删除游记「${trip.title}」吗？\n游记删除后，其中的照片会被释放，不会被删除。`)) return;
+  if (!confirm(t("trip.deleteConfirm", { title: trip.title }))) return;
   try {
     await deleteTripApi(trip.id);
     // 从列表中移除
@@ -1062,7 +1066,7 @@ async function deleteTrip(trip) {
     await store.loadTrips();
   } catch (e) {
     console.error("删除游记失败:", e);
-    alert("删除游记失败: " + e);
+    alert(t("trip.deleteFailed", { error: e }));
   }
 }
 
@@ -1097,12 +1101,12 @@ const estimatedDuration = computed(() => {
 
 const generatingStageText = computed(() => {
   const p = slideshowProgress.value;
-  if (p < 5) return "准备中...";
-  if (p < 35) return "处理照片中...";
-  if (p < 45) return "准备视频素材...";
-  if (p < 80) return "合成视频中...";
-  if (p < 100) return "添加音乐和效果...";
-  return "完成！";
+  if (p < 5) return t("trip.statusPreparing");
+  if (p < 35) return t("trip.statusProcessing");
+  if (p < 45) return t("trip.statusPreparingVideo");
+  if (p < 80) return t("trip.statusComposing");
+  if (p < 100) return t("trip.statusAddingMusic");
+  return t("trip.statusDone");
 });
 
 function openSlideshowModal() {
@@ -1117,7 +1121,7 @@ function openSlideshowModal() {
 
 function closeSlideshowModal() {
   if (slideshowGenerating.value) {
-    if (!confirm("影集正在生成中，确定要关闭吗？")) return;
+    if (!confirm(t("trip.closeConfirm"))) return;
   }
   showSlideshowModal.value = false;
 }
@@ -1128,7 +1132,7 @@ async function selectMusicFile() {
     const selected = await open({
       multiple: false,
       filters: [
-        { name: "音频文件", extensions: ["mp3", "wav", "m4a", "flac", "aac"] }
+        { name: t("trip.audioFiles"), extensions: ["mp3", "wav", "m4a", "flac", "aac"] }
       ]
     });
     if (selected) {
@@ -1136,7 +1140,7 @@ async function selectMusicFile() {
     }
   } catch (e) {
     console.error("选择音乐文件失败:", e);
-    alert("选择音乐文件失败: " + e);
+    alert(t("trip.selectMusicFailed", { error: e }));
   }
 }
 
@@ -1145,14 +1149,14 @@ async function aiGenerateNarration() {
   aiNarrationGenerating.value = true;
   try {
     // 使用现有的 AI 游记生成功能来生成旁白
-    const result = await generateAiJournal(activeTrip.value.id);
+    const result = await generateAiJournal(activeTrip.value.id, getLocale());
     // 精简一下作为旁白
     const sentences = result.split(/[。！？.!?]/).filter(s => s.trim().length > 0);
     const narration = sentences.slice(0, Math.min(sentences.length, 8)).join("。") + "。";
     slideshowNarration.value = narration;
   } catch (e) {
     console.error("AI 生成旁白失败:", e);
-    alert("AI 生成旁白失败: " + e);
+    alert(t("trip.aiNarrationFailed", { error: e }));
   } finally {
     aiNarrationGenerating.value = false;
   }
@@ -1181,11 +1185,11 @@ async function startGenerateSlideshow() {
 
     // 生成输出路径（使用保存对话框）
     const { save } = await import("@tauri-apps/plugin-dialog");
-    const defaultName = `${slideshowTitle.value || '影集'}_${Date.now()}.mp4`;
+    const defaultName = `${slideshowTitle.value || t('trip.slideshowDefaultName')}_${Date.now()}.mp4`;
     const outputPath = await save({
       defaultPath: defaultName,
       filters: [
-        { name: "MP4 视频", extensions: ["mp4"] }
+        { name: t("trip.mp4Video"), extensions: ["mp4"] }
       ]
     });
 
@@ -1211,7 +1215,7 @@ async function startGenerateSlideshow() {
     slideshowResult.value = result;
   } catch (e) {
     console.error("生成影集失败:", e);
-    alert("生成影集失败: " + e);
+    alert(t("trip.slideshowFailed", { error: e }));
     slideshowGenerating.value = false;
   } finally {
     slideshowGenerating.value = false;

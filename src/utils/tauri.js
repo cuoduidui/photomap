@@ -1,5 +1,16 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { translateBackendError } from "../i18n/backendErrors";
+import { getLocale } from "../i18n";
+
+// 统一包装：Rust 后端返回的中文错误串在抛出前翻译为当前界面语言
+export async function invoke(cmd, args) {
+  try {
+    return await tauriInvoke(cmd, args);
+  } catch (e) {
+    throw translateBackendError(e);
+  }
+}
 
 export async function importPhotos(paths, isFolder) {
   return invoke("import_photos", { paths, isFolder });
@@ -242,7 +253,7 @@ export function removeCachedImages(paths) {
 
 // --- Trips ---
 export async function autoClusterTrips() {
-  return invoke("auto_cluster_trips");
+  return invoke("auto_cluster_trips", { locale: getLocale() });
 }
 
 export async function getAllTrips() {
@@ -261,12 +272,12 @@ export async function deleteTrip(tripId) {
   return invoke("delete_trip", { tripId });
 }
 
-export async function generateAiJournal(tripId) {
-  return invoke("generate_ai_journal", { tripId });
+export async function generateAiJournal(tripId, locale) {
+  return invoke("generate_ai_journal", { tripId, locale });
 }
 
-export async function polishAiJournal(tripId, originalText) {
-  return invoke("polish_ai_journal", { tripId, originalText });
+export async function polishAiJournal(tripId, originalText, locale) {
+  return invoke("polish_ai_journal", { tripId, originalText, locale });
 }
 
 export function onAiJournalProgress(callback) {

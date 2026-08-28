@@ -3,26 +3,26 @@
     <div ref="mapEl" class="map-el"></div>
     <div v-if="!mapReady" class="map-loading">
       <div class="loading-spinner"></div>
-      <span>地图加载中...</span>
+      <span>{{ $t("map.loading") }}</span>
     </div>
 
     <!-- 图层切换 -->
     <div v-if="mapReady" class="layer-switch">
       <button class="layer-btn" :class="{ active: mapLayer === 'standard' }" @click="setLayer('standard')">
         <span class="layer-icon">🗺️</span>
-        <span>标准</span>
+        <span>{{ $t("map.standard") }}</span>
       </button>
       <button class="layer-btn" :class="{ active: mapLayer === 'satellite' }" @click="setLayer('satellite')">
         <span class="layer-icon">🛰️</span>
-        <span>卫星</span>
+        <span>{{ $t("map.satellite") }}</span>
       </button>
     </div>
 
     <!-- 控制按钮 -->
     <div v-if="mapReady" class="map-controls">
-      <button class="ctrl-btn" @click="zoomIn" title="放大">+</button>
-      <button class="ctrl-btn" @click="zoomOut" title="缩小">−</button>
-      <button class="ctrl-btn" @click="resetView" title="重置视图">
+      <button class="ctrl-btn" @click="zoomIn" :title="$t('map.zoomIn')">+</button>
+      <button class="ctrl-btn" @click="zoomOut" :title="$t('map.zoomOut')">−</button>
+      <button class="ctrl-btn" @click="resetView" :title="$t('map.resetView')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
           <path d="M3 3v5h5"/>
@@ -33,8 +33,8 @@
     <!-- 路线回放入口 -->
     <div v-if="mapReady" class="route-entry">
       <button class="route-btn" :class="{ active: routeLine }" @click="toggleRoutePlay"
-        :title="'按拍摄时间在地图上重走一遍旅程'">
-        <span>{{ routeLine ? '⏹ 停止回放' : '🗺️ 路线回放' }}</span>
+        :title="$t('map.routeReplayTitle')">
+        <span>{{ routeLine ? $t('map.stopReplay') : $t('map.startReplay') }}</span>
       </button>
     </div>
 
@@ -60,11 +60,11 @@
         </div>
       </div>
       <div class="route-controls">
-        <button class="route-ctrl" @click="togglePause" :title="routePaused ? '继续' : '暂停'">
+        <button class="route-ctrl" @click="togglePause" :title="routePaused ? $t('map.resume') : $t('map.pause')">
           {{ routePaused ? '▶' : (routeFinished ? '↻' : '⏸') }}
         </button>
-        <button class="route-ctrl" @click="stopRoute" title="停止并清除">⏹</button>
-        <select class="route-speed" v-model="routeSpeed" title="播放速度">
+        <button class="route-ctrl" @click="stopRoute" :title="$t('map.stopClear')">⏹</button>
+        <select class="route-speed" v-model="routeSpeed" :title="$t('map.playSpeed')">
           <option :value="2400">0.5×</option>
           <option :value="1200">1×</option>
           <option :value="600">2×</option>
@@ -85,7 +85,7 @@
         <div class="popup-header">
           <span class="popup-title">
             {{ popupLocation || '' }} 
-            <span class="popup-count">{{ popupPhotos.length }} 张照片</span>
+            <span class="popup-count">{{ $t("map.photosHere", { n: popupPhotos.length }) }}</span>
           </span>
           <button class="popup-close" @click="closePopup">✕</button>
         </div>
@@ -108,19 +108,19 @@
             <div class="popup-item-arrow">›</div>
           </div>
           <div v-if="popupPhotos.length === 0" class="popup-empty">
-            暂无照片
+            {{ $t("map.noPhotos") }}
           </div>
         </div>
         <!-- 分页 -->
         <div v-if="totalPages > 1" class="popup-pagination">
           <button class="page-btn" @click="prevPage" :disabled="currentPage === 1">
-            ‹ 上一页
+            {{ $t("map.prevPage") }}
           </button>
           <span class="page-info">
             {{ currentPage }} / {{ totalPages }}
           </span>
           <button class="page-btn" @click="nextPage" :disabled="currentPage === totalPages">
-            下一页 ›
+            {{ $t("map.nextPage") }}
           </button>
         </div>
       </div>
@@ -130,12 +130,14 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePhotoStore } from "../stores/photoStore";
 import { getMapBounds, getClusteredPhotos, getImageBase64, getConfig } from "../utils/tauri";
 import { toAmapLngLat } from "../utils/geo";
 
 const emit = defineEmits(["photo-click", "map-click"]);
 const store = usePhotoStore();
+const { t } = useI18n();
 const mapEl = ref(null);
 const mapReady = ref(false);
 const popupPhotos = ref([]);
@@ -143,7 +145,18 @@ const popupLocation = ref("");
 const currentPage = ref(1);
 const PAGE_SIZE = 8;
 const mapLayer = ref("standard");
-const summaryText = ref("暂无已定位照片");
+// 摘要文案改为「状态 + computed」，语言切换时自动重新翻译
+const summaryState = ref({ type: "view", zoom: 3, n: 0 });
+function setSummary(type, zoom, n) {
+  summaryState.value = { type, zoom: zoom || 3, n: n || 0 };
+}
+const summaryText = computed(() => {
+  const s = summaryState.value;
+  if (s.type === "needMore") return t("map.routeNeedMore");
+  if (s.type === "finished") return t("map.routeFinished");
+  if (s.type === "none") return t("map.noLocatedPhotos");
+  return t("map.summaryView", { level: viewLevelText(s.zoom), n: s.n });
+});
 const thumbMap = ref(new Map());
 
 let map = null;
@@ -262,7 +275,7 @@ function startRoute() {
     });
 
   if (routePhotos.length < 2) {
-    summaryText.value = "路线回放需要至少 2 张已定位照片（当前筛选下不足）";
+    setSummary("needMore");
     return;
   }
 
@@ -293,7 +306,7 @@ function drawRouteLine() {
 
   const startEl = document.createElement("div");
   startEl.style.cssText = "width:22px;height:22px;border-radius:50%;background:#22c55e;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);";
-  startEl.textContent = "起";
+  startEl.textContent = t("map.startLabel");
   startMarker = new AMap.Marker({
     position: path[0],
     content: startEl,
@@ -303,7 +316,7 @@ function drawRouteLine() {
 
   const endEl = document.createElement("div");
   endEl.style.cssText = "width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);";
-  endEl.textContent = "终";
+  endEl.textContent = t("map.endLabel");
   endMarker = new AMap.Marker({
     position: path[path.length - 1],
     content: endEl,
@@ -389,7 +402,7 @@ function finishRoute() {
     placeCar(last.latitude, last.longitude);
     loadRouteThumb(last);
   }
-  summaryText.value = "路线回放完成 ✅";
+  setSummary("finished");
 }
 
 function togglePause() {
@@ -500,9 +513,9 @@ async function initMap() {
   } catch (e) {
     mapEl.value.innerHTML = `<div style="display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;color:#94a3b8;font-size:0.9rem;text-align:center;padding:2rem;">
       <div style="font-size:2.5rem;margin-bottom:0.75rem;">🗺️</div>
-      <div style="font-weight:600;color:#f1f5f9;margin-bottom:0.5rem;font-size:1rem;">地图加载失败</div>
-      <div style="font-size:0.8rem;max-width:360px;color:#64748b;line-height:1.6;">可能原因：<br>1. 高德地图API Key未配置或无效<br>2. 网络连接问题<br>3. 请在设置中检查API Key配置</div>
-      <div style="margin-top:0.75rem;font-size:0.7rem;color:#475569;">错误: ${e.message || '未知错误'}</div>
+      <div style="font-weight:600;color:#f1f5f9;margin-bottom:0.5rem;font-size:1rem;">${t("map.loadFailedTitle")}</div>
+      <div style="font-size:0.8rem;max-width:360px;color:#64748b;line-height:1.6;">${t("map.loadFailedReasons")}</div>
+      <div style="margin-top:0.75rem;font-size:0.7rem;color:#475569;">${t("map.error", { error: e.message || t("map.unknownError") })}</div>
     </div>`;
     return;
   }
@@ -559,17 +572,17 @@ function setLayer(type) {
 }
 
 function viewLevelText(zoom) {
-  if (zoom >= 14) return "街道级别";
-  if (zoom >= 11) return "市级别";
-  if (zoom >= 8) return "省份级别";
-  return "全国级别";
+  if (zoom >= 14) return t("map.viewStreet");
+  if (zoom >= 11) return t("map.viewCity");
+  if (zoom >= 8) return t("map.viewProvince");
+  return t("map.viewCountry");
 }
 
 async function fitBounds() {
   try {
     const bounds = await getMapBounds();
     if (!bounds) {
-      summaryText.value = "暂无已定位照片";
+      setSummary("none");
       return;
     }
 
@@ -591,7 +604,7 @@ async function updateMarkers() {
 
     const photos = store.filteredPhotos.filter((p) => p.latitude && p.longitude);
     if (photos.length === 0) {
-      summaryText.value = "暂无已定位照片";
+      setSummary("none");
       return;
     }
     const filteredIdSet = new Set(photos.map((p) => p.id));
@@ -599,7 +612,7 @@ async function updateMarkers() {
     const zoom = Math.round(map.getZoom());
     const clusters = await getClusteredPhotos(zoom);
 
-    summaryText.value = `当前视图：${viewLevelText(zoom)} · ${photos.length} 张已标记`;
+    setSummary("view", zoom, photos.length);
 
     for (const cluster of clusters) {
       // 标记必须遵循当前筛选：只显示包含被筛选照片的聚类
@@ -652,7 +665,7 @@ function createMarker(cluster, filteredCount) {
       if (currentZoom >= maxZoom - 1) {
         const photos = store.filteredPhotos.filter((p) => cluster.photo_ids.includes(p.id));
         popupPhotos.value = photos;
-        popupLocation.value = photos[0]?.address || photos[0]?.city || `${photos.length} 张照片在此处`;
+        popupLocation.value = photos[0]?.address || photos[0]?.city || t("map.photosAtLocation", { n: photos.length });
         currentPage.value = 1;
         loadCurrentPageThumbs();
       } else {

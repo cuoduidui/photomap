@@ -893,10 +893,10 @@ pub async fn clear_debug_log() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn auto_cluster_trips(state: State<'_, AppState>) -> Result<Vec<Trip>, String> {
+pub async fn auto_cluster_trips(locale: String, state: State<'_, AppState>) -> Result<Vec<Trip>, String> {
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {
-        crate::trip::run_clustering(&db)
+        crate::trip::run_clustering(&db, &locale)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1017,6 +1017,7 @@ pub async fn create_trip(
 pub async fn generate_ai_journal(
     app: AppHandle,
     trip_id: String,
+    locale: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let db = state.db.clone();
@@ -1061,7 +1062,7 @@ pub async fn generate_ai_journal(
 
     let _ = app.emit("ai-journal-progress", serde_json::json!({ "type": "status", "text": "正在分析旅行数据..." }));
 
-    let prompt = build_journal_prompt(&trip, &photos, &photo_tags_map);
+    let prompt = build_journal_prompt(&trip, &photos, &photo_tags_map, &locale);
 
     let _ = app.emit("ai-journal-progress", serde_json::json!({ "type": "status", "text": "正在生成游记..." }));
 
@@ -1086,6 +1087,7 @@ pub async fn polish_ai_journal(
     app: AppHandle,
     trip_id: String,
     original_text: String,
+    locale: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let db = state.db.clone();
@@ -1114,7 +1116,7 @@ pub async fn polish_ai_journal(
 
     let _ = app.emit("ai-journal-progress", serde_json::json!({ "type": "status", "text": "正在润色游记..." }));
 
-    let prompt = build_polish_prompt(&trip, &original_text);
+    let prompt = build_polish_prompt(&trip, &original_text, &locale);
 
     let full_text = call_ai_api(&app, &provider, &api_key, &model, &base_url, &prompt).await?;
 
@@ -1132,16 +1134,140 @@ pub async fn polish_ai_journal(
     Ok(full_text)
 }
 
-fn build_polish_prompt(trip: &Trip, original_text: &str) -> String {
+/// 提示词按界面语言本地化：只保证输出语言与数据占位符正确，指令模板保持简洁中文（AI 可理解）
+struct PromptL10n {
+    language_line: &'static str,
+    unknown: &'static str,
+    unknown_time: &'static str,
+    unknown_place: &'static str,
+    no_people: &'static str,
+    none: &'static str,
+    city_join: &'static str,
+    label_time: &'static str,
+    label_place: &'static str,
+    label_people: &'static str,
+    label_device: &'static str,
+    label_file: &'static str,
+}
+
+fn prompt_l10n(locale: &str) -> PromptL10n {
+    match locale {
+        "zh-CN" => PromptL10n {
+            language_line: "请使用简体中文撰写全部内容。",
+            unknown: "未知",
+            unknown_time: "未知时间",
+            unknown_place: "未知地点",
+            no_people: "未识别人物",
+            none: "无",
+            city_join: "、",
+            label_time: "时间",
+            label_place: "地点",
+            label_people: "人物",
+            label_device: "设备",
+            label_file: "文件名",
+        },
+        "ja" => PromptL10n {
+            language_line: "すべて日本語で書いてください。",
+            unknown: "不明",
+            unknown_time: "不明な時間",
+            unknown_place: "不明な場所",
+            no_people: "人物未認識",
+            none: "なし",
+            city_join: "、",
+            label_time: "時間",
+            label_place: "場所",
+            label_people: "人物",
+            label_device: "機材",
+            label_file: "ファイル名",
+        },
+        "fr" => PromptL10n {
+            language_line: "Rédigez tout en français.",
+            unknown: "inconnu",
+            unknown_time: "heure inconnue",
+            unknown_place: "lieu inconnu",
+            no_people: "aucune personne reconnue",
+            none: "aucun",
+            city_join: ", ",
+            label_time: "Heure",
+            label_place: "Lieu",
+            label_people: "Personnes",
+            label_device: "Appareil",
+            label_file: "Fichier",
+        },
+        "ko" => PromptL10n {
+            language_line: "모든 내용을 한국어로 작성하세요.",
+            unknown: "알 수 없음",
+            unknown_time: "시간 알 수 없음",
+            unknown_place: "장소 알 수 없음",
+            no_people: "인물 미확인",
+            none: "없음",
+            city_join: ", ",
+            label_time: "시간",
+            label_place: "장소",
+            label_people: "인물",
+            label_device: "장비",
+            label_file: "파일명",
+        },
+        "de" => PromptL10n {
+            language_line: "Schreiben Sie alles auf Deutsch.",
+            unknown: "unbekannt",
+            unknown_time: "unbekannte Zeit",
+            unknown_place: "unbekannter Ort",
+            no_people: "keine Personen erkannt",
+            none: "keine",
+            city_join: ", ",
+            label_time: "Zeit",
+            label_place: "Ort",
+            label_people: "Personen",
+            label_device: "Gerät",
+            label_file: "Dateiname",
+        },
+        "ru" => PromptL10n {
+            language_line: "Пишите всё на русском языке.",
+            unknown: "неизвестно",
+            unknown_time: "неизвестное время",
+            unknown_place: "неизвестное место",
+            no_people: "люди не распознаны",
+            none: "нет",
+            city_join: ", ",
+            label_time: "Время",
+            label_place: "Место",
+            label_people: "Люди",
+            label_device: "Камера",
+            label_file: "Файл",
+        },
+        _ => PromptL10n {
+            language_line: "Write everything in English.",
+            unknown: "unknown",
+            unknown_time: "unknown time",
+            unknown_place: "unknown place",
+            no_people: "no people recognized",
+            none: "none",
+            city_join: ", ",
+            label_time: "Time",
+            label_place: "Place",
+            label_people: "People",
+            label_device: "Device",
+            label_file: "File",
+        },
+    }
+}
+
+fn build_polish_prompt(trip: &Trip, original_text: &str, locale: &str) -> String {
+    let l10n = prompt_l10n(locale);
     let cities: Vec<&str> = trip.city_names
         .as_deref()
         .and_then(|s| serde_json::from_str::<Vec<&str>>(s).ok())
         .unwrap_or_default();
 
-    let city_str = if cities.is_empty() { "".to_string() } else { format!("，地点在{}", cities.join("、")) };
+    let city_str = if cities.is_empty() {
+        "".to_string()
+    } else {
+        format!("（{}: {}）", l10n.label_place, cities.join(l10n.city_join))
+    };
 
     format!(
-        r#"你是一位资深旅行作家和编辑。请对以下用户手写的游记进行润色和优化。
+        r#"{}你是一位资深旅行作家和编辑。请对以下用户手写的游记进行润色和优化。
 
 旅行背景：{}至{}{}
 
@@ -1160,6 +1286,7 @@ fn build_polish_prompt(trip: &Trip, original_text: &str) -> String {
 7. 以第一人称写作
 8. 不要使用 Markdown 标题语法，用自然段落即可
 9. 不要输出除润色后游记正文以外的任何内容，不要加"润色后"等说明文字"#,
+        l10n.language_line,
         trip.start_date.as_deref().unwrap_or(""),
         trip.end_date.as_deref().unwrap_or(""),
         city_str,
@@ -1171,7 +1298,9 @@ fn build_journal_prompt(
     trip: &Trip,
     photos: &[Photo],
     photo_tags_map: &std::collections::HashMap<String, Vec<String>>,
+    locale: &str,
 ) -> String {
+    let l10n = prompt_l10n(locale);
     let days = if let (Some(start), Some(end)) = (&trip.start_date, &trip.end_date) {
         if let (Ok(s), Ok(e)) = (
             chrono::NaiveDate::parse_from_str(start, "%Y-%m-%d"),
@@ -1193,8 +1322,8 @@ fn build_journal_prompt(
         .into_iter()
         .collect();
 
-    let camera_str = if cameras.is_empty() { "未知".to_string() } else { cameras.join("、") };
-    let city_str = if cities.is_empty() { "未知地点".to_string() } else { cities.join("、") };
+    let camera_str = if cameras.is_empty() { l10n.unknown.to_string() } else { cameras.join(l10n.city_join) };
+    let city_str = if cities.is_empty() { l10n.unknown_place.to_string() } else { cities.join(l10n.city_join) };
 
     // 统计所有出现过的人物
     let mut all_people: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -1204,9 +1333,9 @@ fn build_journal_prompt(
         }
     }
     let people_str = if all_people.is_empty() {
-        "未识别人物".to_string()
+        l10n.no_people.to_string()
     } else {
-        all_people.iter().cloned().collect::<Vec<_>>().join("、")
+        all_people.iter().cloned().collect::<Vec<_>>().join(l10n.city_join)
     };
 
     // 提供每张照片的详细信息，按时间排序，最多选 30 张代表性照片
@@ -1226,7 +1355,7 @@ fn build_journal_prompt(
 
     let mut photo_info = String::new();
     for (display_idx, (orig_idx, photo)) in selected.iter().enumerate() {
-        let time = photo.taken_time.as_deref().unwrap_or("未知时间");
+        let time = photo.taken_time.as_deref().unwrap_or(l10n.unknown_time);
         let location = if let Some(addr) = &photo.address {
             addr.clone()
         } else {
@@ -1235,21 +1364,26 @@ fn build_journal_prompt(
                 photo.city.as_deref(),
                 photo.district.as_deref(),
             ].into_iter().flatten().collect();
-            if parts.is_empty() { "未知地点".to_string() } else { parts.join("") }
+            if parts.is_empty() { l10n.unknown_place.to_string() } else { parts.join("") }
         };
         let people = photo_tags_map
             .get(&photo.id)
-            .map(|names| names.join("、"))
-            .unwrap_or_else(|| "无".to_string());
-        let camera = photo.camera_model.as_deref().unwrap_or("未知");
+            .map(|names| names.join(l10n.city_join))
+            .unwrap_or_else(|| l10n.none.to_string());
+        let camera = photo.camera_model.as_deref().unwrap_or(l10n.unknown);
 
         photo_info.push_str(&format!(
-            "[{}] 时间:{}\n     地点:{}\n     人物:{}\n     设备:{}\n     文件名:{}\n\n",
+            "[{}] {}:{}\n     {}:{}\n     {}:{}\n     {}:{}\n     {}:{}\n\n",
             display_idx + 1,
+            l10n.label_time,
             time,
+            l10n.label_place,
             location,
+            l10n.label_people,
             people,
+            l10n.label_device,
             camera,
+            l10n.label_file,
             photo.file_name
         ));
     }
@@ -1261,10 +1395,10 @@ fn build_journal_prompt(
         .enumerate()
         .map(|(i, orig)| format!("[{}]→photo:{}", i + 1, orig))
         .collect::<Vec<_>>()
-        .join("，");
+        .join(l10n.city_join);
 
     format!(
-        r#"你是一位旅行作家。请根据以下旅行数据，写一篇约800-1200字的图文游记。
+        r#"{}你是一位旅行作家。请根据以下旅行数据，写一篇约800-1200字的图文游记。
 
 旅行信息：
 - 时间：{} 至 {}（{} 天）
@@ -1289,8 +1423,9 @@ fn build_journal_prompt(
 7. 全篇插入 6-10 张图片，分布均匀，每个图片独占一行
 8. 不要使用 Markdown 标题语法，用自然段落即可
 9. 不要输出除游记正文以外的任何内容"#,
-        trip.start_date.as_deref().unwrap_or("未知"),
-        trip.end_date.as_deref().unwrap_or("未知"),
+        l10n.language_line,
+        trip.start_date.as_deref().unwrap_or(l10n.unknown),
+        trip.end_date.as_deref().unwrap_or(l10n.unknown),
         days,
         city_str,
         photos.len(),

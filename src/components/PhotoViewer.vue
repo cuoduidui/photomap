@@ -4,11 +4,11 @@
       <button class="viewer-close" @click="$emit('close')">✕</button>
 
       <!-- 上一张按钮 -->
-      <button v-if="hasPrev" class="nav-btn nav-prev" @click="goPrev" title="上一张 (←)">
+      <button v-if="hasPrev" class="nav-btn nav-prev" @click="goPrev" :title="$t('photoViewer.prevTitle')">
         ‹
       </button>
       <!-- 下一张按钮 -->
-      <button v-if="hasNext" class="nav-btn nav-next" @click="goNext" title="下一张 (→)">
+      <button v-if="hasNext" class="nav-btn nav-next" @click="goNext" :title="$t('photoViewer.nextTitle')">
         ›
       </button>
 
@@ -16,7 +16,7 @@
         <img v-if="imageSrc" :src="imageSrc" :alt="currentPhoto.file_name" />
         <div v-else class="img-loading">
           <div class="loading-spinner"></div>
-          <span>加载中...</span>
+          <span>{{ $t("photoViewer.loading") }}</span>
         </div>
       </div>
 
@@ -24,25 +24,25 @@
         <h3 class="viewer-title">{{ currentPhoto.file_name }}</h3>
 
         <div class="info-section">
-          <div class="info-label">拍摄信息</div>
+          <div class="info-label">{{ $t("photoViewer.shotInfo") }}</div>
           <div class="info-row">
-            <span class="info-key">拍摄时间</span>
+            <span class="info-key">{{ $t("photoViewer.takenAt") }}</span>
             <span class="info-val">{{ formatDateTime(currentPhoto.taken_time) }}</span>
           </div>
           <div class="info-row">
-            <span class="info-key">相机</span>
+            <span class="info-key">{{ $t("photoViewer.camera") }}</span>
             <span class="info-val">{{ currentPhoto.camera_model || "—" }}</span>
           </div>
         </div>
 
         <div class="info-section">
-          <div class="info-label">位置信息</div>
+          <div class="info-label">{{ $t("photoViewer.locationInfo") }}</div>
           <div v-if="currentPhoto.address" class="info-row highlight">
-            <span class="info-key">📍 地址</span>
+            <span class="info-key">📍 {{ $t("photoViewer.address") }}</span>
             <span class="info-val addr highlight-val">{{ currentPhoto.address }}</span>
           </div>
           <div v-if="currentPhoto.city || currentPhoto.province" class="info-row">
-            <span class="info-key">🏙️ 城市</span>
+            <span class="info-key">🏙️ {{ $t("photoViewer.city") }}</span>
             <span class="info-val">
               <span v-if="currentPhoto.province">{{ currentPhoto.province }}</span>
               <span v-if="currentPhoto.province && currentPhoto.city"> · </span>
@@ -50,22 +50,22 @@
             </span>
           </div>
           <div v-if="currentPhoto.latitude != null" class="info-row coords-row">
-            <span class="info-key">经纬</span>
+            <span class="info-key">{{ $t("photoViewer.coords") }}</span>
             <span class="info-val coords-val">{{ currentPhoto.latitude?.toFixed(4) }}, {{ currentPhoto.longitude?.toFixed(4) }}</span>
           </div>
           <div v-if="currentPhoto.latitude == null && !currentPhoto.address" class="info-row empty">
-            <span class="info-val empty-val">暂无位置信息</span>
+            <span class="info-val empty-val">{{ $t("photoViewer.noLocation") }}</span>
           </div>
         </div>
 
         <div class="info-section">
-          <div class="info-label">文件信息</div>
+          <div class="info-label">{{ $t("photoViewer.fileInfo") }}</div>
           <div class="info-row">
-            <span class="info-key">大小</span>
+            <span class="info-key">{{ $t("photoViewer.size") }}</span>
             <span class="info-val">{{ formatSize(currentPhoto.file_size) }}</span>
           </div>
           <div class="info-row">
-            <span class="info-key">路径</span>
+            <span class="info-key">{{ $t("photoViewer.path") }}</span>
             <span class="info-val path" :title="currentPhoto.file_path">{{ currentPhoto.file_path }}</span>
           </div>
         </div>

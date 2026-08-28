@@ -1,37 +1,37 @@
 <template>
   <div class="tag-panel">
     <div class="tag-header">
-      <span class="tag-title">按人物/标签筛选</span>
+      <span class="tag-title">{{ $t("tag.title") }}</span>
       <div class="header-actions">
         <button class="analyze-btn" @click="onAnalyzeFaces" :disabled="analyzing || store.photos.length === 0">
-          {{ analyzing ? "分析中..." : "🔍 分析人物" }}
+          {{ analyzing ? $t('tag.analyzing') : $t('tag.analyzeFaces') }}
         </button>
-        <button class="add-btn" @click="showAdd = true" title="新建标签">+</button>
+        <button class="add-btn" @click="showAdd = true" :title="$t('tag.newTag')">+</button>
       </div>
     </div>
 
     <!-- 分析进度 -->
     <div v-if="analyzing" class="analyze-progress">
       <div class="progress-info">
-        <span>正在分析人脸...</span>
+        <span>{{ $t("tag.analyzingFaces") }}</span>
         <span class="progress-numbers">{{ analyzeDone }} / {{ analyzeTotal }}</span>
       </div>
       <div class="analyze-bar-track">
         <div class="analyze-bar-fill" :style="{ width: analyzePercent + '%' }"></div>
       </div>
-      <button class="analyze-cancel-btn" @click="cancelAnalyze">取消</button>
+      <button class="analyze-cancel-btn" @click="cancelAnalyze">{{ $t("common.cancel") }}</button>
     </div>
 
     <div v-if="showAdd" class="add-tag-form">
-      <input v-model="newTagName" class="tag-input" placeholder="标签名称" @keyup.enter="onCreateTag" />
+      <input v-model="newTagName" class="tag-input" :placeholder="$t('tag.tagNamePlaceholder')" @keyup.enter="onCreateTag" />
       <div class="tag-type-row">
         <label class="type-radio">
           <input type="radio" v-model="newTagType" value="person" />
-          <span>👤 人物</span>
+          <span>👤 {{ $t("tag.person") }}</span>
         </label>
         <label class="type-radio">
           <input type="radio" v-model="newTagType" value="custom" />
-          <span>🏷️ 标签</span>
+          <span>🏷️ {{ $t("tag.label") }}</span>
         </label>
       </div>
       <div class="color-row">
@@ -41,8 +41,8 @@
           @click="newTagColor = c"></div>
       </div>
       <div class="form-actions">
-        <button class="cancel-btn" @click="showAdd = false">取消</button>
-        <button class="confirm-btn" @click="onCreateTag">创建</button>
+        <button class="cancel-btn" @click="showAdd = false">{{ $t("common.cancel") }}</button>
+        <button class="confirm-btn" @click="onCreateTag">{{ $t("tag.create") }}</button>
       </div>
     </div>
 
@@ -50,7 +50,7 @@
       <!-- 人物标签 -->
       <div v-if="personTags.length > 0" class="tag-group">
         <div class="group-title">
-          <span>👤 人物</span>
+          <span>👤 {{ $t("tag.person") }}</span>
           <span class="group-count">{{ personTags.length }}</span>
         </div>
         <div class="tag-list">
@@ -75,8 +75,8 @@
               <span v-if="tag.description" class="tag-desc-inline">{{ tag.description }}</span>
             </div>
             <span class="tag-count">{{ tag.count }}</span>
-            <button class="tag-edit-btn" @click.stop="openEditModal(tag)" title="编辑">✎</button>
-            <button class="tag-delete" @click.stop="onDeleteTag(tag.id)" title="删除">×</button>
+            <button class="tag-edit-btn" @click.stop="openEditModal(tag)" :title="$t('tag.edit')">✎</button>
+            <button class="tag-delete" @click.stop="onDeleteTag(tag.id)" :title="$t('common.delete')">×</button>
           </div>
         </div>
       </div>
@@ -84,7 +84,7 @@
       <!-- 自定义标签 -->
       <div v-if="customTags.length > 0" class="tag-group">
         <div class="group-title">
-          <span>🏷️ 标签</span>
+          <span>🏷️ {{ $t("tag.label") }}</span>
           <span class="group-count">{{ customTags.length }}</span>
         </div>
         <div class="tag-list">
@@ -105,22 +105,22 @@
                 ref="nameInput" />
             </div>
             <span class="tag-count">{{ tag.count }}</span>
-            <button class="tag-edit-btn" @click.stop="openEditModal(tag)" title="编辑">✎</button>
-            <button class="tag-delete" @click.stop="onDeleteTag(tag.id)" title="删除">×</button>
+            <button class="tag-edit-btn" @click.stop="openEditModal(tag)" :title="$t('tag.edit')">✎</button>
+            <button class="tag-delete" @click.stop="onDeleteTag(tag.id)" :title="$t('common.delete')">×</button>
           </div>
         </div>
       </div>
 
       <div v-if="store.tags.length === 0 && !analyzing" class="empty-state">
         <div class="empty-icon">🏷️</div>
-        <div class="empty-text">暂无标签</div>
-        <div class="empty-hint">点击「分析人物」自动识别，或 + 手动创建</div>
+        <div class="empty-text">{{ $t("tag.noTags") }}</div>
+        <div class="empty-hint">{{ $t("tag.noTagsHint") }}</div>
       </div>
 
       <!-- 批量打标签 -->
       <div v-if="store.selectedPhotoIds.length > 0" class="batch-section">
         <div class="batch-title">
-          已选 {{ store.selectedPhotoIds.length }} 张照片
+          {{ $t("tag.selectedCount", { n: store.selectedPhotoIds.length }) }}
         </div>
         <div class="batch-tags">
           <div v-for="tag in store.tags" :key="tag.id" class="batch-tag"
@@ -135,7 +135,7 @@
     <div v-if="editModalTag" class="edit-modal-overlay" @click="editModalTag = null">
       <div class="edit-modal" @click.stop>
         <div class="edit-modal-header">
-          <span class="edit-modal-title">修改{{ editModalTag.name }}</span>
+          <span class="edit-modal-title">{{ $t("tag.editTagTitle", { name: editModalTag.name }) }}</span>
           <button class="edit-modal-close" @click="editModalTag = null">✕</button>
         </div>
         <div class="edit-modal-body">
@@ -148,10 +148,10 @@
             </div>
             <div class="avatar-actions">
               <button class="avatar-btn" @click="showPhotoPicker = !showPhotoPicker">
-                📷 从相册选
+                📷 {{ $t("tag.fromAlbum") }}
               </button>
               <button class="avatar-btn" @click="onSelectLocalPhoto">
-                📁 本地选
+                📁 {{ $t("tag.fromLocal") }}
               </button>
             </div>
           </div>
@@ -165,20 +165,20 @@
                 <div v-else class="picker-placeholder">📷</div>
               </div>
             </div>
-            <div class="picker-more" v-if="pickerPhotos.length === 0">正在加载照片...</div>
+            <div class="picker-more" v-if="pickerPhotos.length === 0">{{ $t("tag.loadingPhotos") }}</div>
           </div>
 
           <div class="form-item">
-            <label class="form-label">名称</label>
-            <input v-model="editModalName" class="form-input" placeholder="标签名称" />
+            <label class="form-label">{{ $t("tag.name") }}</label>
+            <input v-model="editModalName" class="form-input" :placeholder="$t('tag.tagNamePlaceholder')" />
           </div>
           <div class="form-item">
-            <label class="form-label">简介</label>
+            <label class="form-label">{{ $t("tag.description") }}</label>
             <textarea v-model="editModalDesc" class="form-textarea"
-              placeholder="添加人物简介或备注..." rows="3"></textarea>
+              :placeholder="$t('tag.descPlaceholder')" rows="3"></textarea>
           </div>
           <div class="form-item">
-            <label class="form-label">照片列表（{{ tagPhotos.length }} 张）</label>
+            <label class="form-label">{{ $t("tag.photoList", { n: tagPhotos.length }) }}</label>
             <div v-if="tagPhotos.length > 0" class="tag-photo-grid">
               <div v-for="(photo, idx) in tagPhotos" :key="photo.id" class="tag-photo-item"
                 @click="openTagPhotoViewer(idx)">
@@ -186,12 +186,12 @@
                 <div v-else class="tag-photo-placeholder">📷</div>
               </div>
             </div>
-            <div v-else class="no-photos">暂无照片</div>
+            <div v-else class="no-photos">{{ $t("tag.noPhotos") }}</div>
           </div>
         </div>
         <div class="edit-modal-footer">
-          <button class="cancel-btn" @click="editModalTag = null">取消</button>
-          <button class="confirm-btn" @click="saveEditModal">保存</button>
+          <button class="cancel-btn" @click="editModalTag = null">{{ $t("common.cancel") }}</button>
+          <button class="confirm-btn" @click="saveEditModal">{{ $t("common.save") }}</button>
         </div>
       </div>
     </div>
@@ -207,12 +207,14 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePhotoStore } from "../stores/photoStore";
 import { getImageBase64 } from "../utils/tauri";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import PhotoViewer from "./PhotoViewer.vue";
 
 const store = usePhotoStore();
+const { t } = useI18n();
 
 const showAdd = ref(false);
 const newTagName = ref("");
@@ -275,12 +277,12 @@ async function onCreateTag() {
     newTagName.value = "";
     showAdd.value = false;
   } catch (e) {
-    alert("创建失败：" + e);
+    alert(t("tag.createFailed", { error: e }));
   }
 }
 
 async function onDeleteTag(id) {
-  if (!confirm("确定删除这个标签吗？关联的照片不会受影响。")) return;
+  if (!confirm(t("tag.deleteConfirm"))) return;
   try {
     await store.deleteTag(id);
   } catch (e) {
@@ -315,7 +317,7 @@ async function onAnalyzeFaces() {
     await loadFaceThumbs();
   } catch (e) {
     console.error("人脸分析失败:", e);
-    alert("人脸分析失败: " + e);
+    alert(t("tag.analyzeFailed", { error: e }));
   } finally {
     analyzing.value = false;
   }
@@ -412,16 +414,16 @@ async function saveEditModal() {
     editModalTag.value = null;
   } catch (e) {
     console.error("更新标签失败:", e);
-    alert("更新失败: " + e);
+    alert(t("tag.updateFailed", { error: e }));
   }
 }
 
 async function onSelectLocalPhoto() {
   const selected = await openDialog({
-    title: "选择头像照片",
+    title: t("tag.selectAvatarTitle"),
     multiple: false,
     filters: [{
-      name: "图片文件",
+      name: t("app.imageFiles"),
       extensions: ["jpg", "jpeg", "png", "webp", "bmp"],
     }],
   });

@@ -1,23 +1,23 @@
-<template>
+﻿<template>
   <div class="dialog-overlay" @click="emit('close')">
     <div class="dialog-card" @click.stop>
       <div class="dialog-header">
-        <h3>设置</h3>
+        <h3>{{ $t("settings.title") }}</h3>
         <button class="close-btn" @click="emit('close')">✕</button>
       </div>
 
       <div class="dialog-body">
         <!-- 高德地图 API -->
         <div class="setting-section">
-          <h4>高德地图 API Key</h4>
+          <h4>{{ $t("settings.amapTitle") }}</h4>
           <p class="setting-desc">
-            用于逆地理编码和地址搜索。前往
-            <a href="https://lbs.amap.com/" target="_blank" rel="noopener">高德开放平台</a>
-            申请。
+            {{ $t("settings.amapDescBefore") }}
+            <a href="https://lbs.amap.com/" target="_blank" rel="noopener">{{ $t("settings.amapLink") }}</a>
+            {{ $t("settings.amapDescAfter") }}
           </p>
           <div class="input-row">
-            <input type="text" v-model="apiKey" placeholder="输入高德API Key" class="api-input" />
-            <button class="save-btn" @click="saveApiKey">保存</button>
+            <input type="text" v-model="apiKey" :placeholder="$t('settings.apiKeyPlaceholder')" class="api-input" />
+            <button class="save-btn" @click="saveApiKey">{{ $t("common.save") }}</button>
           </div>
           <div v-if="saveMsg" class="save-msg" :class="{ error: saveError }">{{ saveMsg }}</div>
 
@@ -27,20 +27,20 @@
               :disabled="geocoding || !apiKey.trim()">
               <span v-if="geocoding">
                 <span class="btn-spinner"></span>
-                逆地理编码中 {{ geocodeDone }}/{{ geocodeTotal }}
+                {{ $t("settings.geocodingProgress", { done: geocodeDone, total: geocodeTotal }) }}
               </span>
-              <span v-else>📍 批量补全地址信息</span>
+              <span v-else>📍 {{ $t("settings.batchGeocode") }}</span>
             </button>
-            <button v-if="geocoding" class="geocode-cancel-btn" @click="cancelGeocode">取消</button>
+            <button v-if="geocoding" class="geocode-cancel-btn" @click="cancelGeocode">{{ $t("common.cancel") }}</button>
             <p class="geocode-desc">
-              为有 GPS 坐标但缺少地址的照片自动补全省市区和详细地址
+              {{ $t("settings.geocodeDesc") }}
             </p>
             <label class="config-row">
               <input type="checkbox" v-model="geocodeForce" />
-              <span>刷新全部（已解析的照片也重新获取）</span>
+              <span>{{ $t("settings.refreshAll") }}</span>
             </label>
             <div v-if="geocodeResult" class="geocode-result">
-              ✅ 已为 {{ geocodeResult }} 张照片补全地址
+              ✅ {{ $t("settings.geocodeResult", { n: geocodeResult }) }}
             </div>
           </div>
 
@@ -48,82 +48,97 @@
           <div class="geocode-section">
             <button class="geocode-btn" @click="doRegenerateThumbs"
               :disabled="regenerating || store.photos.length === 0">
-              <span v-if="regenerating">重新生成中 {{ thumbDone }}/{{ thumbTotal }}...</span>
-              <span v-else>🖼️ 重新生成全部缩略图</span>
+              <span v-if="regenerating">{{ $t("settings.regeneratingProgress", { done: thumbDone, total: thumbTotal }) }}</span>
+              <span v-else>🖼️ {{ $t("settings.regenerateThumbs") }}</span>
             </button>
-            <button v-if="regenerating" class="geocode-cancel-btn" @click="cancelGeocode">取消</button>
+            <button v-if="regenerating" class="geocode-cancel-btn" @click="cancelGeocode">{{ $t("common.cancel") }}</button>
             <p class="geocode-desc">
-              修复旧版本生成的竖拍照片方向错误（约几秒到几十秒）
+              {{ $t("settings.regenerateDesc") }}
             </p>
             <div v-if="thumbResult != null" class="geocode-result">
-              ✅ 已重新生成 {{ thumbResult }} 张缩略图
+              ✅ {{ $t("settings.thumbResult", { n: thumbResult }) }}
             </div>
           </div>
         </div>
 
         <!-- AI 游记配置 -->
         <div class="setting-section">
-          <h4>AI 游记生成</h4>
-          <p class="setting-desc">配置 AI 服务，自动为旅行生成游记文章</p>
+          <h4>{{ $t("settings.aiTitle") }}</h4>
+          <p class="setting-desc">{{ $t("settings.aiDesc") }}</p>
 
           <div class="config-group">
-            <label class="config-label">AI 服务商</label>
+            <label class="config-label">{{ $t("settings.aiProvider") }}</label>
             <select v-model="aiProvider" class="config-select">
-              <option value="openai">OpenAI (GPT)</option>
+              <option value="openai">{{ $t("settings.aiProviderOpenAI") }}</option>
               <option value="deepseek">DeepSeek</option>
-              <option value="qwen">通义千问</option>
-              <option value="ollama">Ollama (本地)</option>
+              <option value="qwen">{{ $t("settings.aiProviderQwen") }}</option>
+              <option value="ollama">{{ $t("settings.aiProviderOllama") }}</option>
             </select>
           </div>
 
           <div class="config-group">
             <label class="config-label">API Key</label>
-            <input type="password" v-model="aiApiKey" placeholder="输入 AI API Key"
+            <input type="password" v-model="aiApiKey" :placeholder="$t('settings.aiApiKeyPlaceholder')"
               class="api-input" />
             <p v-if="aiProvider === 'ollama'" class="config-hint">
-              Ollama 无需 API Key，确保本地已运行 ollama 服务
+              {{ $t("settings.ollamaHint") }}
             </p>
           </div>
 
           <div class="config-group">
-            <label class="config-label">模型名称</label>
+            <label class="config-label">{{ $t("settings.modelName") }}</label>
             <input type="text" v-model="aiModel" :placeholder="modelPlaceholder"
               class="api-input" />
           </div>
 
           <div class="config-group">
-            <label class="config-label">API 地址（可选）</label>
-            <input type="text" v-model="aiBaseUrl" placeholder="自定义 API 端点"
+            <label class="config-label">{{ $t("settings.apiUrlOptional") }}</label>
+            <input type="text" v-model="aiBaseUrl" :placeholder="$t('settings.apiUrlPlaceholder')"
               class="api-input" />
           </div>
 
-          <button class="save-btn" @click="saveAiConfig">保存 AI 配置</button>
+          <button class="save-btn" @click="saveAiConfig">{{ $t("settings.saveAiConfig") }}</button>
           <div v-if="aiSaveMsg" class="save-msg" :class="{ error: aiSaveError }">{{ aiSaveMsg }}</div>
         </div>
 
         <!-- 外观 / 皮肤 -->
         <div class="setting-section">
-          <h4>外观 · 皮肤</h4>
-          <p class="setting-desc">一键切换整体配色，选择后立即生效并自动保存</p>
+          <h4>{{ $t("settings.appearanceTitle") }}</h4>
+          <p class="setting-desc">{{ $t("settings.appearanceDesc") }}</p>
           <ThemeSwitcher :current="currentTheme" @select="onSelectTheme" />
         </div>
 
         <!-- 快捷地点 -->
         <div class="setting-section">
-          <h4>快捷地点管理</h4>
+          <h4>{{ $t("settings.quickLocationsTitle") }}</h4>
           <div class="add-location">
-            <input type="text" v-model="newLocName" placeholder="地点名称" />
-            <input type="number" v-model="newLocLat" placeholder="纬度" step="0.0001" />
-            <input type="number" v-model="newLocLng" placeholder="经度" step="0.0001" />
-            <button class="save-btn" @click="addLocation">添加</button>
+            <input type="text" v-model="newLocName" :placeholder="$t('settings.locationNamePlaceholder')" />
+            <input type="number" v-model="newLocLat" :placeholder="$t('settings.latitudePlaceholder')" step="0.0001" />
+            <input type="number" v-model="newLocLng" :placeholder="$t('settings.longitudePlaceholder')" step="0.0001" />
+            <button class="save-btn" @click="addLocation">{{ $t("settings.add") }}</button>
           </div>
           <div v-if="store.customLocations.length" class="loc-list">
             <div v-for="loc in store.customLocations" :key="loc.id" class="loc-item">
               <span>{{ loc.name }} ({{ loc.latitude.toFixed(4) }}, {{ loc.longitude.toFixed(4) }})</span>
-              <button class="del-btn" @click="store.removeCustomLocation(loc.id)">删除</button>
+              <button class="del-btn" @click="store.removeCustomLocation(loc.id)">{{ $t("common.delete") }}</button>
             </div>
           </div>
-          <p v-else class="empty-text">暂无快捷地点</p>
+          <p v-else class="empty-text">{{ $t("settings.noQuickLocations") }}</p>
+        </div>
+
+        <!-- 语言 -->
+        <div class="setting-section">
+          <h4>{{ $t("settings.languageTitle") }}</h4>
+          <p class="setting-desc">{{ $t("settings.languageDesc") }}</p>
+          <select v-model="currentLocale" class="config-select" @change="onLocaleChange">
+            <option value="zh-CN">中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="fr">Français</option>
+            <option value="ko">한국어</option>
+            <option value="de">Deutsch</option>
+            <option value="ru">Русский</option>
+          </select>
         </div>
       </div>
     </div>
@@ -132,13 +147,17 @@
 
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePhotoStore } from "../stores/photoStore";
 import { getConfig, setConfig, onGeocodeProgress } from "../utils/tauri";
 import ThemeSwitcher from "./ThemeSwitcher.vue";
 import { loadTheme, setTheme, THEMES } from "../utils/theme";
+import { setLocale, getLocale } from "../i18n";
 
 const emit = defineEmits(["close"]);
 const store = usePhotoStore();
+const { t } = useI18n();
+const currentLocale = ref(getLocale());
 
 const apiKey = ref("");
 const saveMsg = ref("");
@@ -227,9 +246,13 @@ const modelPlaceholder = computed(() => {
     case "deepseek": return "deepseek-chat";
     case "qwen": return "qwen-plus";
     case "ollama": return "qwen2.5:7b";
-    default: return "模型名称";
+    default: return t("settings.modelNameDefault");
   }
 });
+
+function onLocaleChange() {
+  setLocale(currentLocale.value);
+}
 
 onMounted(async () => {
   const stored = await getConfig("amap_api_key");
@@ -260,9 +283,9 @@ async function saveApiKey() {
   saveError.value = false;
   try {
     await store.setApiKey(apiKey.value.trim());
-    saveMsg.value = "API Key 已保存";
+    saveMsg.value = t("settings.apiKeySaved");
   } catch (e) {
-    saveMsg.value = "保存失败: " + e;
+    saveMsg.value = t("settings.saveFailed", { error: e });
     saveError.value = true;
   }
 }
@@ -275,9 +298,9 @@ async function saveAiConfig() {
     await setConfig("ai_api_key", aiApiKey.value);
     await setConfig("ai_model", aiModel.value);
     await setConfig("ai_base_url", aiBaseUrl.value);
-    aiSaveMsg.value = "AI 配置已保存";
+    aiSaveMsg.value = t("settings.aiConfigSaved");
   } catch (e) {
-    aiSaveMsg.value = "保存失败: " + e;
+    aiSaveMsg.value = t("settings.saveFailed", { error: e });
     aiSaveError.value = true;
   }
 }
@@ -299,7 +322,7 @@ async function addLocation() {
     newLocLat.value = null;
     newLocLng.value = null;
   } catch (e) {
-    saveMsg.value = "添加失败: " + e;
+    saveMsg.value = t("settings.addFailed", { error: e });
     saveError.value = true;
   }
 }

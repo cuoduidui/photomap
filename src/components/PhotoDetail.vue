@@ -2,39 +2,39 @@
   <div class="dialog-overlay" @click="emit('close')">
     <div class="dialog-card" @click.stop>
       <div class="dialog-header">
-        <h3>照片详情</h3>
+        <h3>{{ $t("photoDetail.title") }}</h3>
         <button class="btn-ghost" @click="emit('close')">✕</button>
       </div>
 
       <div class="dialog-body">
         <div class="detail-image">
           <img v-if="thumbSrc" :src="thumbSrc" alt="" />
-          <div v-else class="img-placeholder">无预览图</div>
+          <div v-else class="img-placeholder">{{ $t("photoDetail.noPreview") }}</div>
         </div>
 
         <div class="detail-info">
           <div class="info-row">
-            <span class="info-label">文件名</span>
+            <span class="info-label">{{ $t("photoDetail.fileName") }}</span>
             <span class="info-value">{{ photo.file_name }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">文件路径</span>
+            <span class="info-label">{{ $t("photoDetail.filePath") }}</span>
             <span class="info-value">{{ photo.file_path }}</span>
           </div>
           <div class="info-row" v-if="photo.file_size">
-            <span class="info-label">文件大小</span>
+            <span class="info-label">{{ $t("photoDetail.fileSize") }}</span>
             <span class="info-value">{{ formatSize(photo.file_size) }}</span>
           </div>
           <div class="info-row" v-if="photo.taken_time">
-            <span class="info-label">拍摄时间</span>
+            <span class="info-label">{{ $t("photoDetail.takenAt") }}</span>
             <span class="info-value">{{ photo.taken_time }}</span>
           </div>
           <div class="info-row" v-if="photo.camera_model">
-            <span class="info-label">相机型号</span>
+            <span class="info-label">{{ $t("photoDetail.cameraModel") }}</span>
             <span class="info-value">{{ photo.camera_model }}</span>
           </div>
           <div class="info-row" v-if="exifData">
-            <span class="info-label">拍摄参数</span>
+            <span class="info-label">{{ $t("photoDetail.shootingParams") }}</span>
             <span class="info-value">
               <span v-if="exifData.aperture">f/{{ exifData.aperture }} </span>
               <span v-if="exifData.shutter_speed">{{ exifData.shutter_speed }}s </span>
@@ -43,30 +43,30 @@
             </span>
           </div>
           <div class="info-row" v-if="photo.province || photo.city">
-            <span class="info-label">地理位置</span>
+            <span class="info-label">{{ $t("photoDetail.geoLocation") }}</span>
             <span class="info-value">
               {{ photo.province || "" }}{{ photo.city ? " · " + photo.city : "" }}{{ photo.district ? " · " + photo.district : "" }}
-              <span v-if="geocoding" style="color:var(--muted);font-size:0.75rem;margin-left:6px;">解析中...</span>
+              <span v-if="geocoding" style="color:var(--muted);font-size:0.75rem;margin-left:6px;">{{ $t("photoDetail.resolving") }}</span>
             </span>
           </div>
           <div class="info-row" v-if="photo.address">
-            <span class="info-label">详细地址</span>
+            <span class="info-label">{{ $t("photoDetail.fullAddress") }}</span>
             <span class="info-value">{{ photo.address }}</span>
           </div>
           <div class="info-row" v-if="photo.latitude && !photo.province && geocoding">
-            <span class="info-label">位置解析</span>
-            <span class="info-value" style="color:var(--muted);">正在解析具体位置...</span>
+            <span class="info-label">{{ $t("photoDetail.locationResolve") }}</span>
+            <span class="info-value" style="color:var(--muted);">{{ $t("photoDetail.resolvingLocation") }}</span>
           </div>
           <div class="info-row" v-if="photo.latitude">
-            <span class="info-label">经纬度</span>
+            <span class="info-label">{{ $t("photoDetail.latLng") }}</span>
             <span class="info-value">{{ photo.latitude.toFixed(6) }}, {{ photo.longitude.toFixed(6) }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">定位来源</span>
+            <span class="info-label">{{ $t("photoDetail.locationSource") }}</span>
             <span class="info-value">
-              <span v-if="!photo.latitude" class="tag" style="background:rgba(245,158,11,0.1);color:#d97706;">未定位</span>
-              <span v-else-if="photo.is_location_manual" class="tag" style="background:rgba(59,130,246,0.1);color:#2563eb;">人工标注</span>
-              <span v-else class="tag" style="background:rgba(16,185,129,0.1);color:#10b981;">EXIF自动</span>
+              <span v-if="!photo.latitude" class="tag" style="background:rgba(245,158,11,0.1);color:#d97706;">{{ $t("photoDetail.unlocated") }}</span>
+              <span v-else-if="photo.is_location_manual" class="tag" style="background:rgba(59,130,246,0.1);color:#2563eb;">{{ $t("photoDetail.manual") }}</span>
+              <span v-else class="tag" style="background:rgba(16,185,129,0.1);color:#10b981;">{{ $t("photoDetail.exifAuto") }}</span>
             </span>
           </div>
         </div>

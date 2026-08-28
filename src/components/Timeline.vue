@@ -1,9 +1,9 @@
 <template>
   <div class="timeline">
     <div class="tl-header">
-      <span class="tl-title">按时间浏览</span>
+      <span class="tl-title">{{ $t("timeline.title") }}</span>
       <button v-if="activeYear || activeMonth" class="clear-btn" @click="clearFilter">
-        清除筛选
+        {{ $t("timeline.clearFilter") }}
       </button>
     </div>
 
@@ -11,15 +11,15 @@
       <div v-if="hasDatedPhotos" class="tl-range">
         <div class="range-header">
           <span class="range-label">{{ rangeLabel }}</span>
-          <span class="range-count">{{ rangeCount }} 张</span>
-          <button v-if="isRangeFiltered" class="range-reset" @click="resetRange">重置</button>
+          <span class="range-count">{{ $t("timeline.photosCount", { n: rangeCount }) }}</span>
+          <button v-if="isRangeFiltered" class="range-reset" @click="resetRange">{{ $t("common.reset") }}</button>
         </div>
-        <div class="range-hint">拖动时间轴选择日期范围，地图标记与照片列表同步过滤</div>
-        <div class="density-bar" title="点击选择某一天">
+        <div class="range-hint">{{ $t("timeline.rangeHint") }}</div>
+        <div class="density-bar" :title="$t('timeline.clickDay')">
           <div v-for="(c, i) in dailyCounts" :key="i" class="density-col"
             :class="{ inrange: i >= startIdx && i <= endIdx, has: c > 0 }"
             :style="{ height: Math.max(8, (c / maxDaily * 100)) + '%' }"
-            :title="indexToDateStr(i) + ' · ' + c + ' 张'"
+            :title="$t('timeline.photosOnDate', { date: indexToDateStr(i), n: c })"
             @click="selectDay(i)"></div>
         </div>
         <div ref="trackRef" class="range-track" @pointerdown="onTrackDown">
@@ -32,7 +32,7 @@
         </div>
         <div class="range-dates">
           <span>{{ indexToDateStr(startIdx) }}</span>
-          <span>至</span>
+          <span>{{ $t("timeline.to") }}</span>
           <span>{{ indexToDateStr(endIdx) }}</span>
         </div>
       </div>
@@ -41,7 +41,7 @@
         <div class="tl-year" @click="toggleYear(group.year)">
           <span class="year-arrow" :class="{ open: expandedYears.has(group.year) }">▶</span>
           <span class="year-badge">{{ group.year }}</span>
-          <span class="year-count">{{ group.count }} 张</span>
+          <span class="year-count">{{ $t("timeline.photosCount", { n: group.count }) }}</span>
         </div>
         <div v-if="expandedYears.has(group.year)" class="tl-months">
           <div v-for="month in group.months" :key="month.month" class="tl-month"
@@ -49,23 +49,23 @@
             @click="onMonthClick(group.year, month.month)">
             <div class="month-dot"></div>
             <div class="month-info">
-              <span class="month-name">{{ month.month }}月</span>
+              <span class="month-name">{{ $t("timeline.month", { m: month.month }) }}</span>
             </div>
-            <span class="month-count">{{ month.count }} 张</span>
+            <span class="month-count">{{ $t("timeline.photosCount", { n: month.count }) }}</span>
           </div>
         </div>
       </div>
 
       <div v-if="store.photos.length === 0" class="empty-state">
         <div class="empty-icon">📅</div>
-        <div class="empty-text">暂无照片</div>
-        <div class="empty-hint">导入照片后按时间线浏览</div>
+        <div class="empty-text">{{ $t("timeline.noPhotos") }}</div>
+        <div class="empty-hint">{{ $t("timeline.noPhotosHint") }}</div>
       </div>
 
       <div v-else-if="store.photos.length > 0 && groupedByYear.length === 0" class="empty-state">
         <div class="empty-icon">📷</div>
-        <div class="empty-text">无拍摄时间</div>
-        <div class="empty-hint">这些照片没有EXIF拍摄时间信息</div>
+        <div class="empty-text">{{ $t("timeline.noTime") }}</div>
+        <div class="empty-hint">{{ $t("timeline.noTimeHint") }}</div>
       </div>
     </div>
   </div>

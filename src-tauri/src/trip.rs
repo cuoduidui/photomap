@@ -88,51 +88,57 @@ pub struct TripGroup {
 }
 
 impl TripGroup {
-    pub fn generate_title(&self) -> String {
+    pub fn generate_title(&self, locale: &str) -> String {
         let cities: Vec<&str> = self.cities.iter().map(|s| s.as_str()).collect();
         let provinces: Vec<&str> = self.provinces.iter().map(|s| s.as_str()).collect();
 
-        if cities.len() == 1 {
-            let city = cities[0];
-            format!(
-                "{}月{}日-{}月{}日 {}之旅",
-                self.first_time.month(),
-                self.first_time.day(),
-                self.last_time.month(),
-                self.last_time.day(),
-                city
-            )
+        let sep = if locale == "zh-CN" || locale == "ja" { "→" } else { ", " };
+        let place: Option<String> = if cities.len() == 1 {
+            Some(cities[0].to_string())
         } else if cities.len() > 1 {
-            let city_list = cities.join("→");
-            format!(
-                "{}月{}日-{}月{}日 {}之旅",
-                self.first_time.month(),
-                self.first_time.day(),
-                self.last_time.month(),
-                self.last_time.day(),
-                city_list
-            )
+            Some(cities.join(sep))
         } else if provinces.len() == 1 {
-            format!(
-                "{}月{}日-{}月{}日 {}之旅",
-                self.first_time.month(),
-                self.first_time.day(),
-                self.last_time.month(),
-                self.last_time.day(),
-                provinces[0]
-            )
+            Some(provinces[0].to_string())
         } else {
-            format!(
-                "{}月{}日-{}月{}日 旅行",
-                self.first_time.month(),
-                self.first_time.day(),
-                self.last_time.month(),
-                self.last_time.day()
-            )
+            None
+        };
+        let m1 = self.first_time.month();
+        let d1 = self.first_time.day();
+        let m2 = self.last_time.month();
+        let d2 = self.last_time.day();
+        match locale {
+            "zh-CN" => match place {
+                Some(p) => format!("{}月{}日-{}月{}日 {}之旅", m1, d1, m2, d2, p),
+                None => format!("{}月{}日-{}月{}日 旅行", m1, d1, m2, d2),
+            },
+            "ja" => match place {
+                Some(p) => format!("{}月{}日〜{}月{}日 {}の旅", m1, d1, m2, d2, p),
+                None => format!("{}月{}日〜{}月{}日 旅行", m1, d1, m2, d2),
+            },
+            "fr" => match place {
+                Some(p) => format!("Voyage à {} · {}/{}–{}/{}", p, d1, m1, d2, m2),
+                None => format!("Voyage · {}/{}–{}/{}", d1, m1, d2, m2),
+            },
+            "ko" => match place {
+                Some(p) => format!("{}월 {}일 - {}월 {}일 {} 여행", m1, d1, m2, d2, p),
+                None => format!("{}월 {}일 - {}월 {}일 여행", m1, d1, m2, d2),
+            },
+            "de" => match place {
+                Some(p) => format!("{}-Reise · {}.{}.–{}.{}.", p, d1, m1, d2, m2),
+                None => format!("Reise · {}.{}.–{}.{}.", d1, m1, d2, m2),
+            },
+            "ru" => match place {
+                Some(p) => format!("Поездка: {} · {}.{}.–{}.{}.", p, d1, m1, d2, m2),
+                None => format!("Поездка · {}.{}.–{}.{}.", d1, m1, d2, m2),
+            },
+            _ => match place {
+                Some(p) => format!("{} Trip · {}/{}–{}/{}", p, m1, d1, m2, d2),
+                None => format!("Trip · {}/{}–{}/{}", m1, d1, m2, d2),
+            },
         }
     }
 
-    pub fn to_trip(&self) -> Trip {
+    pub fn to_trip(&self, locale: &str) -> Trip {
         let now = chrono::Utc::now().to_rfc3339();
         let cities_json = serde_json::to_string(&self.cities.iter().collect::<Vec<_>>()).unwrap_or_default();
         let provinces_json = serde_json::to_string(&self.provinces.iter().collect::<Vec<_>>()).unwrap_or_default();
@@ -140,7 +146,7 @@ impl TripGroup {
 
         Trip {
             id: Uuid::new_v4().to_string(),
-            title: self.generate_title(),
+            title: self.generate_title(locale),
             start_date: Some(self.first_time.format("%Y-%m-%d").to_string()),
             end_date: Some(self.last_time.format("%Y-%m-%d").to_string()),
             cover_photo_id: cover,
@@ -156,7 +162,7 @@ impl TripGroup {
     }
 }
 
-pub fn run_clustering(db: &Database) -> Result<Vec<Trip>, String> {
+pub fn run_clustering(db: &Database, locale: &str) -> Result<Vec<Trip>, String> {
     let coords = db.get_photo_coords().map_err(|e| e.to_string())?;
     let groups = cluster_photos_into_trips(&coords);
 
@@ -165,7 +171,7 @@ pub fn run_clustering(db: &Database) -> Result<Vec<Trip>, String> {
 
     let mut trips = Vec::new();
     for group in &groups {
-        let trip = group.to_trip();
+        let trip = group.to_trip(locale);
         db.insert_trip(&trip).map_err(|e| e.to_string())?;
         for coord in &group.coords {
             // 只更新还没有分配到手动游记的照片

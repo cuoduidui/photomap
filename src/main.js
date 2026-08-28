@@ -2,10 +2,12 @@ import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./styles/main.css";
+import i18n from "./i18n";
 import { onAiPromptDebug } from "./utils/tauri";
 
 const app = createApp(App);
 app.use(createPinia());
+app.use(i18n);
 app.mount("#app");
 
 // 监听后端发送的 AI 提示词，打印到前端控制台

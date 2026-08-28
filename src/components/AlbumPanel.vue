@@ -1,13 +1,13 @@
 <template>
   <div class="album-panel">
     <div class="album-header">
-      <span class="album-title">智能影集</span>
+      <span class="album-title">{{ $t("album.title") }}</span>
       <div class="album-filter">
         <button class="filter-btn" :class="{ active: groupBy === 'location' }" @click="groupBy = 'location'">
-          按地点
+          {{ $t("album.byLocation") }}
         </button>
         <button class="filter-btn" :class="{ active: groupBy === 'time' }" @click="groupBy = 'time'">
-          按时间
+          {{ $t("album.byTime") }}
         </button>
       </div>
     </div>
@@ -15,8 +15,8 @@
     <div class="album-content">
       <div v-if="albums.length === 0" class="empty-state">
         <div class="empty-icon">📖</div>
-        <div class="empty-text">暂无影集</div>
-        <div class="empty-hint">导入更多照片后自动生成影集</div>
+        <div class="empty-text">{{ $t("album.noAlbums") }}</div>
+        <div class="empty-hint">{{ $t("album.noAlbumsHint") }}</div>
       </div>
 
       <div v-for="album in pagedAlbums" :key="album.id" class="album-list-item" @click="onOpenAlbum(album)">
@@ -29,7 +29,7 @@
         <div class="album-list-info">
           <div class="album-list-name">{{ album.name }}</div>
           <div class="album-list-meta">
-            <span class="meta-count">{{ album.photos.length }} 张照片</span>
+            <span class="meta-count">{{ $t("album.photosCount", { n: album.photos.length }) }}</span>
             <span v-if="album.dateRange" class="meta-date">{{ album.dateRange }}</span>
             <span v-if="album.location" class="meta-location">📍 {{ album.location }}</span>
           </div>
@@ -40,13 +40,13 @@
       <!-- 影集列表分页 -->
       <div v-if="totalAlbumListPages > 1" class="album-list-pagination">
         <button class="page-btn" @click="prevAlbumListPage" :disabled="albumListPage === 1">
-          ‹ 上一页
+          {{ $t("album.prevPage") }}
         </button>
         <span class="page-info">
           {{ albumListPage }} / {{ totalAlbumListPages }}
         </span>
         <button class="page-btn" @click="nextAlbumListPage" :disabled="albumListPage === totalAlbumListPages">
-          下一页 ›
+          {{ $t("album.nextPage") }}
         </button>
       </div>
     </div>
@@ -54,17 +54,17 @@
     <!-- 影集详情 -->
     <div v-if="currentAlbum" class="album-detail">
       <div class="detail-header">
-        <button class="back-btn" @click="currentAlbum = null">← 返回</button>
+        <button class="back-btn" @click="currentAlbum = null">{{ $t("album.back") }}</button>
         <div class="detail-title">{{ currentAlbum.name }}</div>
-        <div class="detail-count">{{ currentAlbum.photos.length }} 张照片</div>
+        <div class="detail-count">{{ $t("album.photosCount", { n: currentAlbum.photos.length }) }}</div>
       </div>
 
       <div class="detail-actions">
         <button class="export-btn" @click="onExportImage" :disabled="!!exporting">
-          <span>{{ exporting === 'image' ? '生成中...' : '🖼️ 导出为图片' }}</span>
+          <span>{{ exporting === 'image' ? $t('album.generating') : $t('album.exportImage') }}</span>
         </button>
         <button class="export-btn" @click="onExportVideo" :disabled="!!exporting">
-          <span>{{ exporting === 'video' ? '录制中...' : '🎬 导出为视频' }}</span>
+          <span>{{ exporting === 'video' ? $t('album.recording') : $t('album.exportVideo') }}</span>
         </button>
       </div>
 
@@ -93,13 +93,13 @@
       <!-- 分页 -->
       <div v-if="totalAlbumPages > 1" class="album-pagination">
         <button class="page-btn" @click="prevAlbumPage" :disabled="albumPage === 1">
-          ‹ 上一页
+          {{ $t("album.prevPage") }}
         </button>
         <span class="page-info">
           {{ albumPage }} / {{ totalAlbumPages }}
         </span>
         <button class="page-btn" @click="nextAlbumPage" :disabled="albumPage === totalAlbumPages">
-          下一页 ›
+          {{ $t("album.nextPage") }}
         </button>
       </div>
     </div>
@@ -108,11 +108,13 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePhotoStore } from "../stores/photoStore";
 import { getImageBase64, exportAlbumImage, exportAlbumVideo, onExportProgress } from "../utils/tauri";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 
 const store = usePhotoStore();
+const { t } = useI18n();
 const emit = defineEmits(["photo-click"]);
 
 const groupBy = ref("location");
@@ -207,9 +209,9 @@ onMounted(async () => {
   componentAlive = true;
   const fn = await onExportProgress((done, total) => {
     if (done < 0) {
-      exportStatus.value = "正在编码视频...";
+      exportStatus.value = t("album.encodingVideo");
     } else if (total > 0) {
-      exportStatus.value = `正在处理 ${done}/${total}...`;
+      exportStatus.value = t("album.processingProgress", { done, total });
     }
   });
   if (componentAlive) {
@@ -246,9 +248,10 @@ const albums = computed(() => {
 
   if (groupBy.value === "location") {
     for (const p of photos) {
-      const key = p.city || (p.latitude != null ? `坐标 ${p.latitude.toFixed(1)}, ${p.longitude.toFixed(1)}` : "未分类");
+      const key = p.city || (p.latitude != null ? `坐标 ${p.latitude.toFixed(1)}, ${p.longitude.toFixed(1)}` : t("album.uncategorized"));
       if (!groups.has(key)) {
-        groups.set(key, { id: "loc_" + key, name: key, location: p.province || "", icon: "📍", photos: [] });
+        const name = p.city || (p.latitude != null ? t("album.coordKey", { lat: p.latitude.toFixed(1), lng: p.longitude.toFixed(1) }) : t("album.uncategorized"));
+        groups.set(key, { id: "loc_" + key, name, location: p.province || "", icon: "📍", photos: [] });
       }
       groups.get(key).photos.push(p);
     }
@@ -256,15 +259,15 @@ const albums = computed(() => {
     for (const p of photos) {
       if (!p.taken_time) continue;
       const d = new Date(p.taken_time * 1000);
-      const key = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
       if (!groups.has(key)) {
-        groups.set(key, { id: "time_" + key, name: key, icon: "📅", photos: [] });
+        groups.set(key, { id: "time_" + key, name: t("album.yearMonth", { y: d.getFullYear(), m: d.getMonth() + 1 }), icon: "📅", photos: [] });
       }
       groups.get(key).photos.push(p);
     }
     const noTime = photos.filter(p => !p.taken_time);
     if (noTime.length > 0) {
-      groups.set("unknown", { id: "time_unknown", name: "无拍摄时间", icon: "❓", photos: noTime });
+      groups.set("unknown", { id: "time_unknown", name: t("album.unknownTime"), icon: "❓", photos: noTime });
     }
   }
 
@@ -307,17 +310,17 @@ async function onExportImage() {
   if (!currentAlbum.value || exporting.value) return;
   const album = currentAlbum.value;
   exporting.value = "image";
-  exportStatus.value = "正在准备...";
+  exportStatus.value = t("album.preparing");
 
   try {
     const filePath = await saveDialog({
-      title: "保存影集图片",
-      defaultPath: `${album.name}_影集.png`,
-      filters: [{ name: "PNG 图片", extensions: ["png"] }],
+      title: t("album.saveAlbumImageTitle"),
+      defaultPath: t("album.defaultImageName", { name: album.name }),
+      filters: [{ name: t("album.pngImages"), extensions: ["png"] }],
     });
     if (!filePath) return;
 
-    exportStatus.value = "正在生成拼图...";
+    exportStatus.value = t("album.generatingCollage");
     const photoPaths = album.photos.map(p => p.file_path).filter(Boolean);
     const result = await exportAlbumImage(
       album.name,
@@ -326,10 +329,10 @@ async function onExportImage() {
       photoPaths,
       filePath,
     );
-    exportStatus.value = "导出成功! 已打开文件位置";
+    exportStatus.value = t("album.exportSuccess");
     setTimeout(() => { exportStatus.value = ""; }, 3000);
   } catch (e) {
-    exportStatus.value = "导出失败: " + e;
+    exportStatus.value = t("album.exportFailed", { error: e });
     console.error(e);
   } finally {
     setTimeout(() => { exporting.value = false; }, 500);
@@ -340,20 +343,20 @@ async function onExportVideo() {
   if (!currentAlbum.value || exporting.value) return;
   const album = currentAlbum.value;
   exporting.value = "video";
-  exportStatus.value = "正在准备...";
+  exportStatus.value = t("album.preparing");
 
   try {
     const filePath = await saveDialog({
-      title: "保存影集视频",
-      defaultPath: `${album.name}_影集.mp4`,
+      title: t("album.saveAlbumVideoTitle"),
+      defaultPath: t("album.defaultVideoName", { name: album.name }),
       filters: [
-        { name: "MP4 视频", extensions: ["mp4"] },
-        { name: "WebM 视频", extensions: ["webm"] },
+        { name: t("album.mp4Video"), extensions: ["mp4"] },
+        { name: t("album.webmVideo"), extensions: ["webm"] },
       ],
     });
     if (!filePath) return;
 
-    exportStatus.value = "正在生成帧...";
+    exportStatus.value = t("album.generatingFrames");
     const photoPaths = album.photos.map(p => p.file_path).filter(Boolean);
     const result = await exportAlbumVideo(
       album.name,
@@ -362,10 +365,10 @@ async function onExportVideo() {
       filePath,
     );
     const ext = result.split('.').pop();
-    exportStatus.value = `导出成功(${ext})! 已打开文件位置`;
+    exportStatus.value = t("album.exportSuccessExt", { ext });
     setTimeout(() => { exportStatus.value = ""; }, 3000);
   } catch (e) {
-    exportStatus.value = "导出失败: " + e;
+    exportStatus.value = t("album.exportFailed", { error: e });
     console.error(e);
   } finally {
     setTimeout(() => { exporting.value = false; }, 500);
