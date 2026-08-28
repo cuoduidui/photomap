@@ -80,6 +80,13 @@
           <div v-if="aiSaveMsg" class="save-msg" :class="{ error: aiSaveError }">{{ aiSaveMsg }}</div>
         </div>
 
+        <!-- 外观 / 皮肤 -->
+        <div class="setting-section">
+          <h4>外观 · 皮肤</h4>
+          <p class="setting-desc">一键切换整体配色，选择后立即生效并自动保存</p>
+          <ThemeSwitcher :current="currentTheme" @select="onSelectTheme" />
+        </div>
+
         <!-- 快捷地点 -->
         <div class="setting-section">
           <h4>快捷地点管理</h4>
@@ -106,6 +113,8 @@
 import { ref, onMounted, computed, onUnmounted } from "vue";
 import { usePhotoStore } from "../stores/photoStore";
 import { getConfig, setConfig, onGeocodeProgress } from "../utils/tauri";
+import ThemeSwitcher from "./ThemeSwitcher.vue";
+import { loadTheme, setTheme, THEMES } from "../utils/theme";
 
 const emit = defineEmits(["close"]);
 const store = usePhotoStore();
@@ -123,6 +132,8 @@ const aiModel = ref("");
 const aiBaseUrl = ref("");
 const aiSaveMsg = ref("");
 const aiSaveError = ref(false);
+
+const currentTheme = ref("fresh");
 
 // 批量逆地理编码
 const geocoding = ref(false);
@@ -167,6 +178,8 @@ onMounted(async () => {
   aiModel.value = (await getConfig("ai_model")) || "";
   aiBaseUrl.value = (await getConfig("ai_base_url")) || "";
 
+  currentTheme.value = await loadTheme();
+
   // 监听逆地理编码进度
   unlistenGeocode = await onGeocodeProgress((data) => {
     if (data && data.length >= 2) {
@@ -207,6 +220,10 @@ async function saveAiConfig() {
   }
 }
 
+async function onSelectTheme(id) {
+  currentTheme.value = await setTheme(id);
+}
+
 async function addLocation() {
   if (!newLocName.value.trim() || !newLocLat.value || !newLocLng.value) return;
   try {
@@ -238,7 +255,7 @@ async function addLocation() {
 }
 
 .dialog-card {
-  background: #fff;
+  background: var(--bg2);
   border-radius: 14px;
   width: 520px;
   max-height: 600px;
@@ -251,16 +268,16 @@ async function addLocation() {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--rule);
 }
-.dialog-header h3 { font-size: 1.05rem; color: #1e293b; }
+.dialog-header h3 { font-size: 1.05rem; color: var(--ink); }
 .close-btn {
   width: 28px; height: 28px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  color: #64748b;
+  color: var(--text-muted);
 }
-.close-btn:hover { background: #f1f5f9; }
+.close-btn:hover { background: var(--bg-hover); }
 
 .dialog-body { padding: 1rem 1.5rem; }
 
@@ -268,14 +285,14 @@ async function addLocation() {
 .setting-section h4 {
   font-size: 0.95rem;
   margin-bottom: 0.35rem;
-  color: #1e293b;
+  color: var(--ink);
 }
 .setting-desc {
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
-.setting-desc a { color: #6366f1; }
+.setting-desc a { color: var(--accent); }
 
 .input-row {
   display: flex;
@@ -284,12 +301,12 @@ async function addLocation() {
 .api-input {
   flex: 1;
   padding: 6px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--rule);
   border-radius: 8px;
   font-size: 0.85rem;
   outline: none;
 }
-.api-input:focus { border-color: #6366f1; }
+.api-input:focus { border-color: var(--accent); }
 
 .config-group {
   margin-bottom: 0.75rem;
@@ -297,29 +314,29 @@ async function addLocation() {
 .config-label {
   display: block;
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 .config-select {
   width: 100%;
   padding: 6px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--rule);
   border-radius: 8px;
   font-size: 0.85rem;
   outline: none;
-  background: #fff;
+  background: var(--bg2);
 }
 .config-hint {
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin-top: 3px;
 }
 
 .save-btn {
   padding: 5px 14px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: var(--bg2);
   font-size: 0.8rem;
   font-weight: 500;
 }
@@ -327,28 +344,28 @@ async function addLocation() {
 
 .del-btn {
   font-size: 0.75rem;
-  color: #ef4444;
+  color: var(--danger);
   padding: 2px 8px;
 }
 
 .save-msg {
   margin-top: 0.4rem;
   font-size: 0.8rem;
-  color: #10b981;
+  color: var(--success);
 }
-.save-msg.error { color: #ef4444; }
+.save-msg.error { color: var(--danger); }
 
 .geocode-section {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--rule);
 }
 .geocode-btn {
   width: 100%;
   padding: 10px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #0ea5e9, #6366f1);
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: var(--bg2);
   font-size: 0.82rem;
   font-weight: 500;
   display: flex;
@@ -359,7 +376,7 @@ async function addLocation() {
 }
 .geocode-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+  box-shadow: 0 4px 12px var(--accent2-soft);
 }
 .geocode-btn:disabled {
   opacity: 0.6;
@@ -369,7 +386,7 @@ async function addLocation() {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border-top-color: var(--bg2);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   display: inline-block;
@@ -386,11 +403,11 @@ async function addLocation() {
 .geocode-result {
   margin-top: 8px;
   padding: 6px 10px;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: var(--success-soft);
+  border: 1px solid var(--success-soft);
   border-radius: 6px;
   font-size: 0.75rem;
-  color: #34d399;
+  color: var(--success);
   text-align: center;
 }
 
@@ -402,7 +419,7 @@ async function addLocation() {
 .add-location input {
   flex: 1; min-width: 100px;
   padding: 6px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--rule);
   border-radius: 8px;
   font-size: 0.85rem;
   outline: none;
@@ -414,15 +431,15 @@ async function addLocation() {
   justify-content: space-between;
   align-items: center;
   padding: 0.4rem 0;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--rule);
   font-size: 0.82rem;
-  color: #475569;
+  color: var(--text-secondary);
 }
 .loc-item:last-child { border-bottom: none; }
 
 .empty-text {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin-top: 0.5rem;
 }
 </style>

@@ -11,13 +11,8 @@ pub fn cluster_photos_into_trips(coords: &[PhotoCoord]) -> Vec<TripGroup> {
     let mut current: Option<TripGroup> = None;
 
     for coord in coords {
-        if coord.taken_time.is_none() {
-            continue;
-        }
-        let time = match parse_time(&coord.taken_time.as_ref().unwrap()) {
-            Some(t) => t,
-            None => continue,
-        };
+        let Some(taken_time) = coord.taken_time.as_deref() else { continue; };
+        let Some(time) = parse_time(taken_time) else { continue; };
 
         let city = coord.city.as_deref().unwrap_or("");
         let province = coord.province.as_deref().unwrap_or("");
@@ -49,8 +44,8 @@ pub fn cluster_photos_into_trips(coords: &[PhotoCoord]) -> Vec<TripGroup> {
                 first_time: time,
                 last_time: time,
             });
-        } else {
-            let g = current.as_mut().unwrap();
+        } else if let Some(g) = current.as_mut() {
+            // 走到这里时 current 必然存在（should_start_new 为 false 的前提是 current 为 Some）
             g.coords.push(coord.clone());
             if !city.is_empty() { g.cities.insert(city.to_string()); }
             if !province.is_empty() { g.provinces.insert(province.to_string()); }

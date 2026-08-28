@@ -19,7 +19,12 @@
             :class="{ active: isCityActive(city) }"
             @click="onCityClick(city)">
             <span class="city-dot"></span>
-            <span class="city-name">{{ city.city || "未知城市" }}</span>
+            <span class="city-name">
+              <span class="city-name-main">{{ city.city || "未知城市" }}</span>
+              <span v-if="city.address && city.district && city.district !== city.city" class="city-name-sub">
+                {{ city.district }}
+              </span>
+            </span>
             <span class="city-count">{{ city.count }}</span>
           </div>
         </div>
@@ -100,6 +105,8 @@ const groupedByProvince = computed(() => {
       latitude: loc.latitude,
       longitude: loc.longitude,
       province: loc.province,
+      district: loc.district,
+      address: loc.address,
     });
   }
   return Array.from(map.values()).sort((a, b) => b.totalCount - a.totalCount);
@@ -267,8 +274,17 @@ function clearFilter() {
 
 .city-name {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.city-name-main {
   font-size: 0.82rem;
   color: var(--text-secondary);
+}
+.city-name-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 
 .city-count {

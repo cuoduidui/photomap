@@ -6,10 +6,14 @@ use crate::cluster::{self, BoundingBox, ClusterPoint};
 use crate::face;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, State, Emitter};
+
+/// 导入临时文件计数器（用于生成并发安全的临时文件名）
+static IMPORT_TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 pub struct AppState {
     pub db: std::sync::Arc<crate::db::Database>,
@@ -37,13 +41,19 @@ pub struct UpdateLocationRequest {
     pub address: Option<String>,
 }
 
-fn scan_directory(dir: &str) -> Vec<String> {
+fn scan_directory(dir: &str, visited: &mut std::collections::HashSet<std::path::PathBuf>) -> Vec<String> {
     let mut results = Vec::new();
+    // 通过规范化路径防止符号链接导致的无限递归
+    if let Ok(canonical) = std::fs::canonicalize(dir) {
+        if !visited.insert(canonical) {
+            return results;
+        }
+    }
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                results.extend(scan_directory(path.to_string_lossy().as_ref()));
+                results.extend(scan_directory(path.to_string_lossy().as_ref(), visited));
             } else if let Some(path_str) = path.to_str() {
                 if exif::is_supported_image(path_str) {
                     results.push(path_str.to_string());
@@ -55,28 +65,80 @@ fn scan_directory(dir: &str) -> Vec<String> {
 }
 
 /// 将照片复制到应用数据目录，返回复制后的路径
-/// 使用原始路径的MD5哈希作为文件名，保留原始扩展名
+/// 使用照片内容的 MD5 作为文件名：同一张照片（内容相同）无论从哪个路径导入都会去重，
+/// 内容变化后也会自然生成新的文件，避免旧缓存失效的问题。
 fn copy_photo_to_storage(src_path: &str, photos_dir: &str) -> Option<String> {
     use md5::{Md5, Digest};
 
-    let mut hasher = Md5::new();
-    hasher.update(src_path.as_bytes());
-    let hash = format!("{:x}", hasher.finalize());
-
-    let ext = Path::new(src_path)
+    let src = Path::new(src_path);
+    let ext = src
         .extension()
         .and_then(|e| e.to_str())
-        .unwrap_or("jpg");
+        .unwrap_or("jpg")
+        .to_lowercase();
+
+    // 先写入同目录下的临时文件，边复制边计算内容哈希，避免并发导入相同内容时互相覆盖
+    let temp_path = Path::new(photos_dir).join(format!(
+        ".importing_{}_{}",
+        std::process::id(),
+        IMPORT_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
+
+    let mut src_file = match std::fs::File::open(src) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("打开照片失败 {}: {}", src_path, e);
+            return None;
+        }
+    };
+    let mut tmp_file = match std::fs::File::create(&temp_path) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("创建临时文件失败 {}: {}", src_path, e);
+            return None;
+        }
+    };
+
+    let mut hasher = Md5::new();
+    let mut buffer = [0u8; 128 * 1024];
+    let copy_result = loop {
+        match src_file.read(&mut buffer) {
+            Ok(0) => break Ok(()),
+            Ok(n) => {
+                hasher.update(&buffer[..n]);
+                if let Err(e) = tmp_file.write_all(&buffer[..n]) {
+                    break Err(e);
+                }
+            }
+            Err(e) => break Err(e),
+        }
+    };
+    drop(tmp_file);
+
+    if let Err(e) = copy_result {
+        let _ = std::fs::remove_file(&temp_path);
+        eprintln!("复制照片失败 {}: {}", src_path, e);
+        return None;
+    }
+
+    let hash = format!("{:x}", hasher.finalize());
 
     let dest_path = format!("{}/{}.{}", photos_dir, hash, ext);
 
     if Path::new(&dest_path).exists() {
+        let _ = std::fs::remove_file(&temp_path);
         return Some(dest_path);
     }
 
-    match std::fs::copy(src_path, &dest_path) {
+    match std::fs::rename(&temp_path, &dest_path) {
         Ok(_) => Some(dest_path),
         Err(e) => {
+            // 并发导入相同内容时目标可能已被其他线程创建，此时视为成功
+            if Path::new(&dest_path).exists() {
+                let _ = std::fs::remove_file(&temp_path);
+                return Some(dest_path);
+            }
+            let _ = std::fs::remove_file(&temp_path);
             eprintln!("复制照片失败 {}: {}", src_path, e);
             None
         }
@@ -99,8 +161,9 @@ pub async fn import_photos(
 
     let all_files = if is_folder {
         let mut files = Vec::new();
+        let mut visited = std::collections::HashSet::new();
         for p in &paths {
-            files.extend(scan_directory(p));
+            files.extend(scan_directory(p, &mut visited));
         }
         files
     } else {
@@ -337,6 +400,8 @@ pub async fn geocode_photo(
     let result = state.geocoder.reverse_geocode(lat, lng).await
         .map_err(|e| e.to_string())?;
 
+    // 优先保存高德返回的完整中文地址，解析不到时回退到街道/区县
+    let address = result.address.clone().or_else(|| result.street_label());
     state.db.update_photo_location(
         &photo_id,
         lat,
@@ -344,7 +409,7 @@ pub async fn geocode_photo(
         result.province.as_deref(),
         result.city.as_deref(),
         result.district.as_deref(),
-        result.street_label().as_deref(),
+        address.as_deref(),
         false,
     ).map_err(|e| e.to_string())?;
 
@@ -360,7 +425,7 @@ pub async fn batch_geocode(
         return Err("未配置高德API Key".to_string());
     }
 
-    let photos = state.db.get_photos_without_address().map_err(|e| e.to_string())?;
+    let photos = state.db.get_photos_for_geocode().map_err(|e| e.to_string())?;
     let total = photos.len();
     if total == 0 {
         return Ok(0);
@@ -388,6 +453,10 @@ pub async fn batch_geocode(
         if let Some(geocode_result) = result {
             if i < photo_coords.len() {
                 let (photo_id, _, _) = &photo_coords[i];
+                let address = geocode_result
+                    .address
+                    .clone()
+                    .or_else(|| geocode_result.street_label());
                 let _ = state.db.update_photo_location(
                     photo_id,
                     lat,
@@ -395,7 +464,7 @@ pub async fn batch_geocode(
                     geocode_result.province.as_deref(),
                     geocode_result.city.as_deref(),
                     geocode_result.district.as_deref(),
-                    geocode_result.street_label().as_deref(),
+                    address.as_deref(),
                     false,
                 );
                 updated += 1;
@@ -556,18 +625,50 @@ pub async fn get_clustered_photos(
 }
 
 #[tauri::command]
-pub async fn get_image_base64(path: String) -> Result<String, String> {
+pub async fn get_image_base64(
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let data_dir = state.data_dir.clone();
+    let thumbs_dir = state.thumbs_dir.clone();
+    let db = state.db.clone();
+
     tokio::task::spawn_blocking(move || {
-        use std::io::Read;
         let path = Path::new(&path);
-        if !path.exists() {
+        if !path.is_file() {
             return Err("文件不存在".to_string());
         }
-        let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-        let mut buffer = Vec::new();
+
+        // 限制单张图片大小，避免一次性读取超大文件导致内存暴涨
+        const MAX_IMAGE_BYTES: u64 = 50 * 1024 * 1024;
+        let metadata = std::fs::metadata(path).map_err(|e| format!("读取文件信息失败: {}", e))?;
+        if metadata.len() > MAX_IMAGE_BYTES {
+            return Err(format!(
+                "图片过大（约 {} MB），超过 {} MB 上限",
+                metadata.len() / (1024 * 1024),
+                MAX_IMAGE_BYTES / (1024 * 1024)
+            ));
+        }
+
+        // 只允许访问应用数据目录、缩略图目录，或数据库中已登记的照片路径
+        let canonical = path.canonicalize().map_err(|e| format!("无法解析路径: {}", e))?;
+        let data_dir = Path::new(&data_dir).canonicalize().map_err(|e| e.to_string())?;
+        let thumbs_dir = Path::new(&thumbs_dir).canonicalize().map_err(|e| e.to_string())?;
+        let allowed = canonical.starts_with(&data_dir) || canonical.starts_with(&thumbs_dir);
+        if !allowed {
+            let known = db
+                .photo_path_exists(&canonical)
+                .map_err(|e| format!("查询照片失败: {}", e))?;
+            if !known {
+                return Err("无权访问该路径".to_string());
+            }
+        }
+
+        let mut file = std::fs::File::open(&canonical).map_err(|e| e.to_string())?;
+        let mut buffer = Vec::with_capacity(metadata.len() as usize);
         file.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
 
-        let ext = path
+        let ext = canonical
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("jpg")

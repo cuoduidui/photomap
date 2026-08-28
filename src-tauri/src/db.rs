@@ -100,18 +100,23 @@ pub struct PhotoCoord {
     pub thumbnail_path: Option<String>,
 }
 
-/// 生成地点分组显示名：优先「区县·街道」，次选区县，再选街道，最后回退城市。
+/// 生成地点分组显示名：优先展示完整中文地址，次选区县，最后回退城市。
 fn combine_location_display(
     city: &Option<String>,
     district: &Option<String>,
     address: &Option<String>,
 ) -> Option<String> {
-    match (district, address) {
-        (Some(d), Some(a)) => Some(format!("{}·{}", d, a)),
-        (Some(d), None) => Some(d.clone()),
-        (None, Some(a)) => Some(a.clone()),
-        (None, None) => city.clone(),
+    if let Some(a) = address {
+        if !a.trim().is_empty() {
+            return Some(a.clone());
+        }
     }
+    if let Some(d) = district {
+        if !d.trim().is_empty() {
+            return Some(d.clone());
+        }
+    }
+    city.clone()
 }
 
 impl Database {
@@ -384,13 +389,31 @@ impl Database {
         }
     }
 
-    pub fn get_photos_without_address(&self) -> Result<Vec<Photo>, Box<dyn std::error::Error>> {
+    /// 判断指定路径是否为数据库中已登记的照片（用于允许读取导入失败时回退的原始路径）
+    pub fn photo_path_exists(&self, target: &Path) -> Result<bool, Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT file_path FROM photos")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows {
+            let stored = row?;
+            if let Ok(canonical) = Path::new(&stored).canonicalize() {
+                if canonical == *target {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+
+    /// 获取需要（重新）逆地理编码的照片：所有带坐标且非人工标注的照片。
+    /// 已有的旧数据可能只存了街道级地址，重跑可刷新为完整中文地址。
+    pub fn get_photos_for_geocode(&self) -> Result<Vec<Photo>, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, file_path, file_name, file_size, taken_time, latitude, longitude,
              province, city, district, address, is_location_manual, camera_model, exif_data,
              thumbnail_path, created_at, updated_at FROM photos
-             WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND (province IS NULL OR city IS NULL)"
+             WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND is_location_manual = 0"
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(Photo {
@@ -479,7 +502,7 @@ impl Database {
     /// 从持久化缓存读取反地理编码结果（重启后依然有效，减少高德 API 调用）
     pub fn get_geocode_cache(&self, lat: f64, lng: f64) -> Result<Option<GeocodeResult>, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
-        let key = format!("{:.4},{:.4}", lat, lng);
+        let key = format!("v2:{:.4},{:.4}", lat, lng);
         let mut stmt = conn.prepare(
             "SELECT province, city, district, township, street, address, formatted_address
              FROM geocode_cache WHERE cache_key=?1"
@@ -505,7 +528,7 @@ impl Database {
     /// 写入持久化反地理编码缓存
     pub fn set_geocode_cache(&self, lat: f64, lng: f64, result: &GeocodeResult) -> Result<(), Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
-        let key = format!("{:.4},{:.4}", lat, lng);
+        let key = format!("v2:{:.4},{:.4}", lat, lng);
         conn.execute(
             "INSERT OR REPLACE INTO geocode_cache (cache_key, province, city, district, township, street, address, formatted_address)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
@@ -544,7 +567,7 @@ impl Database {
              FROM photos
              WHERE province IS NOT NULL AND city IS NOT NULL
              GROUP BY province, city, district, address
-             ORDER BY cnt DESC LIMIT 60"
+             ORDER BY cnt DESC LIMIT 200"
         )?;
         let rows = stmt.query_map([], |row| {
             let province: Option<String> = row.get(0)?;
@@ -896,19 +919,46 @@ impl Database {
         let mut stmt = conn.prepare("SELECT value FROM app_config WHERE key=?1")?;
         let mut rows = stmt.query_map(params![key], |r| r.get::<_, String>(0))?;
         if let Some(row) = rows.next() {
-            Ok(Some(row?))
+            let value = row?;
+            if crate::secure::is_encrypted(&value) {
+                match crate::secure::decrypt(&value) {
+                    Ok(plain) => Ok(Some(plain)),
+                    Err(e) => {
+                        eprintln!("解密配置 {} 失败: {}", key, e);
+                        Ok(Some(String::new()))
+                    }
+                }
+            } else {
+                Ok(Some(value))
+            }
         } else {
             Ok(None)
         }
     }
 
     pub fn set_config(&self, key: &str, value: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let stored = if Self::is_sensitive_config_key(key) && !value.is_empty() {
+            match crate::secure::encrypt(value) {
+                Ok(enc) => enc,
+                Err(e) => {
+                    eprintln!("加密配置 {} 失败，按明文存储: {}", key, e);
+                    value.to_string()
+                }
+            }
+        } else {
+            value.to_string()
+        };
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "INSERT OR REPLACE INTO app_config (key, value) VALUES (?1, ?2)",
-            params![key, value],
+            params![key, stored],
         )?;
         Ok(())
+    }
+
+    /// 需要加密保存的配置项（API Key 等敏感信息）
+    fn is_sensitive_config_key(key: &str) -> bool {
+        matches!(key, "ai_api_key" | "amap_api_key")
     }
 
     pub fn get_photo_coords(&self) -> Result<Vec<PhotoCoord>, Box<dyn std::error::Error>> {

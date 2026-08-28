@@ -57,6 +57,8 @@ struct AmapRegeocodeResponse {
 #[derive(Debug, Deserialize)]
 struct AmapRegeocode {
     formatted_address: Option<String>,
+    // 高德返回的是驼峰字段 addressComponent，必须显式映射，否则省市区永远解析不出来
+    #[serde(rename = "addressComponent")]
     address_component: Option<AmapAddressComponent>,
 }
 
@@ -87,8 +89,12 @@ fn value_to_string(v: &Option<serde_json::Value>) -> Option<String> {
 fn parse_regeocode(regeo: &AmapRegeocode) -> GeocodeResult {
     if let Some(ac) = &regeo.address_component {
         let province = ac.province.clone();
-        let city = value_to_string(&ac.city);
         let district = ac.district.clone();
+        // 直辖市（北京/上海/天津/重庆）的高德 city 字段为空对象，回退到区县，再回退到省份，
+        // 否则这些照片永远进不了省市区分组，只能以坐标显示
+        let city = value_to_string(&ac.city)
+            .or_else(|| district.clone())
+            .or_else(|| province.clone());
         let township = value_to_string(&ac.township);
         let street = value_to_string(&ac.street);
         GeocodeResult {
@@ -145,7 +151,8 @@ impl Geocoder {
     }
 
     fn cache_key(lat: f64, lng: f64) -> String {
-        format!("{:.4},{:.4}", lat, lng)
+        // v2：修复 addressComponent 解析后让旧缓存失效，强制重新拉取
+        format!("v2:{:.4},{:.4}", lat, lng)
     }
 
     pub async fn reverse_geocode(&self, lat: f64, lng: f64) -> Result<GeocodeResult, Box<dyn std::error::Error>> {

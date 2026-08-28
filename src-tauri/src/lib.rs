@@ -1,5 +1,6 @@
 mod db;
 mod exif;
+mod secure;
 mod thumbnail;
 mod geocode;
 mod cluster;
@@ -31,9 +32,12 @@ pub fn run() {
             let thumbs_dir = app_data_dir.join(".thumbnails");
             std::fs::create_dir_all(&thumbs_dir).ok();
 
+            let db_path_str = db_path
+                .to_str()
+                .ok_or("应用数据目录包含非 UTF-8 字符，无法初始化数据库")?;
             let db_arc = std::sync::Arc::new(
-                db::Database::open(db_path.to_str().unwrap())
-                    .expect("Failed to open database"),
+                db::Database::open(db_path_str)
+                    .map_err(|e| format!("打开数据库失败: {}", e))?,
             );
 
             let api_key = db_arc

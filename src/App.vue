@@ -15,6 +15,13 @@
           逆地理编码
         </button>
         <button class="btn-ghost" @click="showSettings = true">设置</button>
+        <div class="theme-popover-wrap">
+          <button class="btn-ghost" title="换肤" @click="showThemePopover = !showThemePopover">🎨</button>
+          <div v-if="showThemePopover" class="theme-popover" @click.stop>
+            <div class="theme-popover-title">一键换肤</div>
+            <ThemeSwitcher :current="currentTheme" inline @select="onSelectTheme" />
+          </div>
+        </div>
       </div>
       <div class="toolbar-right">
         <button class="btn-ghost"
@@ -83,8 +90,8 @@
       <span>共 <strong>{{ store.stats.total }}</strong> 张照片</span>
       <span>已定位 <strong :style="{ color: 'var(--accent)' }">{{ store.stats.located }}</strong> 张</span>
       <span>未定位 <strong :style="{ color: 'var(--warning)' }">{{ store.stats.unlocated }}</strong> 张</span>
-      <span v-if="store.apiConfigured" class="tag" style="background: rgba(16,185,129,0.1); color: #10b981">API 已配置</span>
-      <span v-else class="tag" style="background: rgba(245,158,11,0.1); color: #d97706">API 未配置</span>
+      <span v-if="store.apiConfigured" class="tag" style="background: var(--success-soft); color: var(--success)">API 已配置</span>
+      <span v-else class="tag" style="background: var(--warning-soft); color: var(--warning)">API 未配置</span>
     </footer>
 
     <!-- 标注位置弹窗 -->
@@ -115,16 +122,20 @@ import Timeline from "./components/Timeline.vue";
 import AlbumPanel from "./components/AlbumPanel.vue";
 import TripList from "./components/TripList.vue";
 import TagPanel from "./components/TagPanel.vue";
+import ThemeSwitcher from "./components/ThemeSwitcher.vue";
+import { loadTheme, setTheme, THEMES } from "./utils/theme";
 
 const store = usePhotoStore();
 const showFilterBar = ref(false);
 const showSettings = ref(false);
 const showLocationDialog = ref(false);
+const showThemePopover = ref(false);
 const viewerPhoto = ref(null);
 const activeTab = ref("location");
 const sidebarWidth = ref(280);
 const toast = ref(null);
 const mapRef = ref(null);
+const currentTheme = ref("fresh");
 
 let toastTimer = null;
 function showToast(message, duration = 3000) {
@@ -224,6 +235,12 @@ function onLocationDone() {
   showToast("位置已更新");
 }
 
+async function onSelectTheme(id) {
+  currentTheme.value = await setTheme(id);
+  showThemePopover.value = false;
+  showToast("已切换皮肤：" + (THEMES.find((t) => t.id === id)?.name || id));
+}
+
 function startResize(e) {
   e.preventDefault();
   const startX = e.clientX;
@@ -240,6 +257,11 @@ function startResize(e) {
 }
 
 let unlisteners = [];
+function onDocClick(e) {
+  if (showThemePopover.value && !e.target.closest(".theme-popover-wrap")) {
+    showThemePopover.value = false;
+  }
+}
 onMounted(async () => {
   clearDebugLog();
   debugLog("[App] mounted");
@@ -249,9 +271,12 @@ onMounted(async () => {
   unlisteners.push(await onGeocodeProgress((done, total) => {
     store.geocodeProgress = { done, total };
   }));
+  document.addEventListener("click", onDocClick);
   await store.init();
+  currentTheme.value = await loadTheme();
 });
 onUnmounted(() => {
+  document.removeEventListener("click", onDocClick);
   unlisteners.forEach((fn) => {
     try { fn(); } catch (e) { /* ignore */ }
   });
@@ -289,6 +314,28 @@ onUnmounted(() => {
 .toolbar-right {
   display: flex;
   gap: 0.5rem;
+}
+
+/* 一键换肤弹层 */
+.theme-popover-wrap {
+  position: relative;
+}
+.theme-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 2100;
+  background: var(--bg2);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 0.75rem;
+  box-shadow: var(--shadow-lg);
+  min-width: 210px;
+}
+.theme-popover-title {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
 }
 
 /* 进度条 */

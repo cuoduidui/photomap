@@ -506,7 +506,7 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 .filter-tab.active {
-  background: rgba(122, 155, 132, 0.15);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 .filter-tab .count {
@@ -521,8 +521,8 @@ onUnmounted(() => {
   gap: 6px;
   margin-top: 8px;
   padding: 4px 10px;
-  background: rgba(192, 133, 82, 0.1);
-  border: 1px solid rgba(192, 133, 82, 0.25);
+  background: var(--accent2-soft);
+  border: 1px solid var(--accent2-soft);
   border-radius: 12px;
   font-size: 0.72rem;
 }
@@ -542,7 +542,7 @@ onUnmounted(() => {
   justify-content: center;
 }
 .filter-clear:hover {
-  background: rgba(199, 91, 91, 0.3);
+  background: var(--danger-soft);
   color: var(--error);
 }
 
@@ -552,8 +552,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: linear-gradient(135deg, rgba(122, 155, 132, 0.08), rgba(192, 133, 82, 0.08));
-  border-bottom: 1px solid rgba(122, 155, 132, 0.15);
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent2-soft));
+  border-bottom: 1px solid var(--accent-soft);
   animation: slideDown 0.2s ease;
   flex-shrink: 0;
 }
@@ -593,18 +593,18 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 .locate-btn {
-  background: rgba(122, 155, 132, 0.15);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 .locate-btn:hover {
   background: rgba(122, 155, 132, 0.25);
 }
 .delete-btn {
-  background: rgba(199, 91, 91, 0.12);
+  background: var(--danger-soft);
   color: var(--error);
 }
 .delete-btn:hover {
-  background: rgba(199, 91, 91, 0.2);
+  background: var(--danger-soft);
 }
 
 @keyframes slideDown {
@@ -653,7 +653,7 @@ onUnmounted(() => {
 }
 .photo-card.selected {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(122, 155, 132, 0.3), 0 0 12px var(--accent-glow);
+  box-shadow: 0 0 0 2px var(--accent-soft), 0 0 12px var(--accent-glow);
 }
 
 .photo-check {
@@ -720,7 +720,7 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  background: #1e293b;
+  background: var(--bg-deep);
   overflow: hidden;
 }
 .photo-image img {
@@ -753,7 +753,7 @@ onUnmounted(() => {
 .img-skeleton {
   position: absolute;
   inset: 0;
-  background: #1e293b;
+  background: var(--bg-deep);
   overflow: hidden;
 }
 .skeleton-shimmer {
@@ -773,7 +773,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
+  background: linear-gradient(135deg, var(--bg-deep), var(--bg-deep));
 }
 .fallback-icon { font-size: 1.5rem; opacity: 0.4; }
 
@@ -806,12 +806,12 @@ onUnmounted(() => {
   max-width: 100%;
 }
 .meta-tag.located {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
+  background: var(--success-soft);
+  color: var(--success);
 }
 .meta-tag.unlocated {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 .empty-state {

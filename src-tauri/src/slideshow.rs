@@ -4,6 +4,19 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
+/// 检查 ffmpeg 是否可用，避免在用户机器缺少 ffmpeg 时输出难以理解的错误
+fn ensure_ffmpeg() -> Result<(), String> {
+    let status = Command::new("ffmpeg")
+        .arg("-version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        _ => Err("未找到 ffmpeg，请先安装 ffmpeg 并加入系统 PATH（例如 winget install ffmpeg）后重试。".to_string()),
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SlideshowConfig {
     pub trip_id: String,
@@ -23,6 +36,8 @@ pub fn generate_slideshow(
     app: AppHandle,
     progress: Arc<AtomicUsize>,
 ) -> Result<(), String> {
+    ensure_ffmpeg()?;
+
     let photo_count = config.photo_paths.len();
     if photo_count == 0 {
         return Err("没有照片".to_string());
@@ -156,6 +171,9 @@ pub fn generate_slideshow(
 
     // Step 4: 添加背景音乐（如果有）
     let final_output = PathBuf::from(&config.output_path);
+    if let Some(parent) = final_output.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("创建输出目录失败: {}", e))?;
+    }
     
     if let Some(music_path) = &config.music_path {
         if Path::new(music_path).exists() {
@@ -181,13 +199,13 @@ pub fn generate_slideshow(
 
             if !status.success() {
                 // 如果加音乐失败，就用无音频版本
-                let _ = std::fs::copy(&video_path, &final_output);
+                std::fs::copy(&video_path, &final_output).map_err(|e| format!("复制视频文件失败: {}", e))?;
             }
         } else {
-            let _ = std::fs::copy(&video_path, &final_output);
+            std::fs::copy(&video_path, &final_output).map_err(|e| format!("复制视频文件失败: {}", e))?;
         }
     } else {
-        let _ = std::fs::copy(&video_path, &final_output);
+        std::fs::copy(&video_path, &final_output).map_err(|e| format!("复制视频文件失败: {}", e))?;
     }
 
     progress.store(100, Ordering::SeqCst);
