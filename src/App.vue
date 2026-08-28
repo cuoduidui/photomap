@@ -34,9 +34,10 @@
 
     <!-- 导入进度 -->
     <div v-if="store.importProgress" class="progress-container">
-      <span>正在导入照片... {{ store.importProgress.done }} / {{ store.importProgress.total }}</span>
+      <span v-if="store.importProgress.scanning">正在扫描文件夹... 已发现 {{ store.importProgress.total }} 张照片</span>
+      <span v-else>正在导入照片... {{ store.importProgress.done }} / {{ store.importProgress.total }}</span>
       <div class="progress-bar">
-        <div class="fill" :style="{ width: importProgressPercent + '%' }" />
+        <div class="fill" :style="{ width: importProgressPercent + '%' }" :class="{ indeterminate: store.importProgress.scanning }" />
       </div>
     </div>
     <!-- 逆地理编码进度 -->
@@ -145,7 +146,7 @@ function showToast(message, duration = 3000) {
 }
 
 const importProgressPercent = computed(() => {
-  if (!store.importProgress || !store.importProgress.total) return 0;
+  if (!store.importProgress || !store.importProgress.total || store.importProgress.scanning) return 0;
   return Math.min(100, Math.round((store.importProgress.done / store.importProgress.total) * 100));
 });
 const geocodeProgressPercent = computed(() => {
@@ -266,7 +267,12 @@ onMounted(async () => {
   clearDebugLog();
   debugLog("[App] mounted");
   unlisteners.push(await onImportProgress((done, total) => {
-    store.importProgress = { done, total };
+    if (done < 0) {
+      // 扫描阶段：done=-1，total 为已发现照片数
+      store.importProgress = { done: 0, total, scanning: true };
+    } else {
+      store.importProgress = { done, total, scanning: false };
+    }
   }));
   unlisteners.push(await onGeocodeProgress((done, total) => {
     store.geocodeProgress = { done, total };

@@ -907,10 +907,17 @@ impl Database {
         Ok(results)
     }
 
-    pub fn delete_tag(&self, id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    /// 删除标签并返回其 face_thumb 文件路径（供命令层清理磁盘文件）。
+    /// photo_tags 关联记录由外键级联删除。
+    pub fn delete_tag(&self, id: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
+        let face_thumb: Option<String> = conn.query_row(
+            "SELECT face_thumb FROM tags WHERE id=?1",
+            params![id],
+            |row| row.get(0),
+        ).ok();
         conn.execute("DELETE FROM tags WHERE id=?1", params![id])?;
-        Ok(())
+        Ok(face_thumb)
     }
 
     pub fn add_photo_tags(&self, photo_id: &str, tag_ids: &[String]) -> Result<(), Box<dyn std::error::Error>> {

@@ -36,7 +36,28 @@ pub fn generate_slideshow(
     app: AppHandle,
     progress: Arc<AtomicUsize>,
 ) -> Result<(), String> {
+    // 每次运行使用独立临时目录，结束后无论成功失败都清理
+    let run_id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let temp_dir = std::env::temp_dir().join(format!("slideshow_{}_{}", config.trip_id, run_id));
+    let result = generate_slideshow_inner(config, app, progress, &temp_dir);
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    result
+}
+
+fn generate_slideshow_inner(
+    config: &SlideshowConfig,
+    app: AppHandle,
+    progress: Arc<AtomicUsize>,
+    temp_dir: &Path,
+) -> Result<(), String> {
     ensure_ffmpeg()?;
+
+    // 防止用户配置 0 或负数时长导致 ffmpeg 失败
+    let photo_duration = config.photo_duration.max(0.5);
+    let transition_duration = config.transition_duration.max(0.0);
 
     let photo_count = config.photo_paths.len();
     if photo_count == 0 {
@@ -57,8 +78,6 @@ pub fn generate_slideshow(
     progress.store(5, Ordering::SeqCst);
     let _ = app.emit("slideshow-progress", (5u32, total as u32));
 
-    // 创建临时目录用于存放处理后的图片
-    let temp_dir = std::env::temp_dir().join(format!("slideshow_{}", config.trip_id));
     std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
 
     // Step 1: 将所有照片缩放到目标尺寸并添加 Ken Burns 效果（使用 zoompan 滤镜）
@@ -106,7 +125,7 @@ pub fn generate_slideshow(
     // Step 2: 生成 concat 文件列表
     let list_file = temp_dir.join("files.txt");
     let mut list_content = String::new();
-    let per_image_duration = config.photo_duration + config.transition_duration;
+    let per_image_duration = photo_duration + transition_duration;
     
     for img in &image_files {
         list_content.push_str(&format!(
@@ -120,7 +139,7 @@ pub fn generate_slideshow(
         list_content.push_str(&format!(
             "file '{}'\nduration {}\n",
             last.to_string_lossy().replace("'", "'\\''"),
-            config.photo_duration
+            photo_duration
         ));
     }
     
@@ -210,9 +229,6 @@ pub fn generate_slideshow(
 
     progress.store(100, Ordering::SeqCst);
     let _ = app.emit("slideshow-progress", (100u32, total as u32));
-
-    // 清理临时文件
-    let _ = std::fs::remove_dir_all(&temp_dir);
 
     Ok(())
 }

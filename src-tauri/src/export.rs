@@ -88,6 +88,8 @@ fn resize_contain(img: &DynamicImage, target_w: u32, target_h: u32) -> (RgbaImag
 pub fn open_file_location(path: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
+        // Command::arg 不做 shell 解析，路径含 &、#、空格等均安全；
+        // explorer 的 /select, 参数在 Windows 中支持含空格路径。
         Command::new("explorer.exe")
             .arg(format!("/select,{}", path))
             .spawn()
@@ -205,6 +207,26 @@ pub fn generate_video(
     photo_paths: &[String],
     output_path: &str,
 ) -> Result<String, String> {
+    // 每次运行使用独立临时目录，结束后无论成功失败都清理，避免并发冲突与残留
+    let run_id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let temp_dir = std::env::temp_dir().join(format!("photomap_export_{}", run_id));
+
+    let result = generate_video_inner(app, album_name, date_range, photo_paths, output_path, &temp_dir);
+    let _ = fs::remove_dir_all(&temp_dir);
+    result
+}
+
+fn generate_video_inner(
+    app: &AppHandle,
+    album_name: &str,
+    date_range: &str,
+    photo_paths: &[String],
+    output_path: &str,
+    temp_dir: &Path,
+) -> Result<String, String> {
     let font = load_font()?;
 
     let count = photo_paths.len();
@@ -217,7 +239,6 @@ pub fn generate_video(
     let vw = 1280u32;
     let vh = 720u32;
 
-    let temp_dir = std::env::temp_dir().join("photomap_export");
     fs::create_dir_all(&temp_dir).ok();
 
     let mut concat_list = String::new();
@@ -337,12 +358,6 @@ pub fn generate_video(
     } else {
         return Err("未检测到 ffmpeg，无法生成视频。请安装 ffmpeg 并添加到系统 PATH 后重试。".to_string());
     };
-
-    // Cleanup temp
-    for f in &frame_files {
-        let _ = fs::remove_file(f);
-    }
-    let _ = fs::remove_file(&list_path);
 
     open_file_location(&final_path)?;
     Ok(final_path)

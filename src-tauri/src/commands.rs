@@ -41,7 +41,11 @@ pub struct UpdateLocationRequest {
     pub address: Option<String>,
 }
 
-fn scan_directory(dir: &str, visited: &mut std::collections::HashSet<std::path::PathBuf>) -> Vec<String> {
+fn scan_directory(
+    dir: &str,
+    visited: &mut std::collections::HashSet<std::path::PathBuf>,
+    on_progress: &mut dyn FnMut(usize),
+) -> Vec<String> {
     let mut results = Vec::new();
     // 通过规范化路径防止符号链接导致的无限递归
     if let Ok(canonical) = std::fs::canonicalize(dir) {
@@ -53,12 +57,13 @@ fn scan_directory(dir: &str, visited: &mut std::collections::HashSet<std::path::
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                results.extend(scan_directory(path.to_string_lossy().as_ref(), visited));
+                results.extend(scan_directory(path.to_string_lossy().as_ref(), visited, on_progress));
             } else if let Some(path_str) = path.to_str() {
                 if exif::is_supported_image(path_str) {
                     results.push(path_str.to_string());
                 }
             }
+            on_progress(results.len());
         }
     }
     results
@@ -162,8 +167,15 @@ pub async fn import_photos(
     let all_files = if is_folder {
         let mut files = Vec::new();
         let mut visited = std::collections::HashSet::new();
+        let mut scan_count = 0usize;
         for p in &paths {
-            files.extend(scan_directory(p, &mut visited));
+            files.extend(scan_directory(p, &mut visited, &mut |count| {
+                scan_count = count;
+                // 扫描期间用 -1 表示"正在扫描"，避免 UI 无反馈
+                if scan_count % 50 == 0 {
+                    let _ = app.emit("import-progress", (-1i32, scan_count as i32));
+                }
+            }));
         }
         files
     } else {
@@ -542,9 +554,17 @@ pub async fn create_tag(name: String, tag_type: String, color: String, state: St
 #[tauri::command]
 pub async fn delete_tag(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let db = state.db.clone();
-    tokio::task::spawn_blocking(move || db.delete_tag(&id).map_err(|e| e.to_string()))
+    let thumbs_dir = state.thumbs_dir.clone();
+    let face_thumb = tokio::task::spawn_blocking(move || db.delete_tag(&id).map_err(|e| e.to_string()))
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())??;
+    // 清理标签的人脸缩略图文件
+    if let Some(thumb) = face_thumb {
+        if thumb.starts_with(&thumbs_dir) {
+            let _ = std::fs::remove_file(&thumb);
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

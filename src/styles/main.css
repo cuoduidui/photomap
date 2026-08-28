@@ -178,6 +178,14 @@ button {
   border-radius: 3px;
   transition: width 0.3s ease;
 }
+.progress-bar .fill.indeterminate {
+  width: 30%;
+  animation: progress-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes progress-indeterminate {
+  0% { margin-left: -30%; }
+  100% { margin-left: 100%; }
+}
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
