@@ -132,6 +132,7 @@
 import { ref, computed, onMounted, watch, onUnmounted } from "vue";
 import { usePhotoStore } from "../stores/photoStore";
 import { getMapBounds, getClusteredPhotos, getImageBase64, getConfig } from "../utils/tauri";
+import { toAmapLngLat } from "../utils/geo";
 
 const emit = defineEmits(["photo-click", "map-click"]);
 const store = usePhotoStore();
@@ -279,7 +280,7 @@ function startRoute() {
 }
 
 function drawRouteLine() {
-  const path = routePhotos.map((p) => [p.longitude, p.latitude]);
+  const path = routePhotos.map((p) => toAmapLngLat(p.latitude, p.longitude));
   routeLine = new AMap.Polyline({
     path,
     strokeColor: "#0ea5e9",
@@ -322,7 +323,7 @@ function drawRouteLine() {
 }
 
 function placeCar(lat, lng) {
-  if (carMarker) carMarker.setPosition([lng, lat]);
+  if (carMarker) carMarker.setPosition(toAmapLngLat(lat, lng));
 }
 
 function fitRouteBounds() {
@@ -335,9 +336,11 @@ function fitRouteBounds() {
     maxLng = Math.max(maxLng, p.longitude);
   }
   const pad = 0.01;
+  const sw = toAmapLngLat(minLat - pad, minLng - pad);
+  const ne = toAmapLngLat(maxLat + pad, maxLng + pad);
   map.setBounds(new AMap.Bounds(
-    new AMap.LngLat(minLng - pad, minLat - pad),
-    new AMap.LngLat(maxLng + pad, maxLat + pad)
+    new AMap.LngLat(sw[0], sw[1]),
+    new AMap.LngLat(ne[0], ne[1])
   ));
 }
 
@@ -363,7 +366,7 @@ function tick() {
     }
     const p = routePhotos[routeSeg];
     placeCar(p.latitude, p.longitude);
-    if (map) map.panTo([p.longitude, p.latitude]);
+    if (map) map.panTo(toAmapLngLat(p.latitude, p.longitude));
     loadRouteThumb(p);
   } else {
     const a = routePhotos[routeSeg];
@@ -456,17 +459,17 @@ defineExpose({
 
 function zoomTo(lat, lng, zoom = 12) {
   if (!map) return;
-  map.setZoomAndCenter(zoom, [lng, lat]);
+  map.setZoomAndCenter(zoom, toAmapLngLat(lat, lng));
 }
 
 function panTo(lat, lng, zoom = 14) {
   if (!map) return;
-  map.setZoomAndCenter(zoom, [lng, lat]);
+  map.setZoomAndCenter(zoom, toAmapLngLat(lat, lng));
 }
 
 function zoomToPhoto(photo) {
   if (!map || !photo.latitude || !photo.longitude) return;
-  map.setZoomAndCenter(15, [photo.longitude, photo.latitude]);
+  map.setZoomAndCenter(15, toAmapLngLat(photo.latitude, photo.longitude));
 }
 
 function loadAmapScript(key) {
