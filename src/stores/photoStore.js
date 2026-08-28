@@ -53,7 +53,10 @@ export const usePhotoStore = defineStore("photos", {
           if (p.district === state.filter.city) return true;
           if (p.address === state.filter.city) return true;
           const combo = [p.district, p.address].filter(Boolean).join("·");
-          return combo === state.filter.city;
+          if (combo === state.filter.city) return true;
+          // 乡镇/街道级筛选：地址文本包含街道名即可
+          if (p.address && state.filter.city && p.address.includes(state.filter.city)) return true;
+          return false;
         });
       }
       if (state.filter.lat != null && state.filter.lng != null) {

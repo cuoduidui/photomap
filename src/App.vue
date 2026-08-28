@@ -215,9 +215,9 @@ async function runBatchGeocode() {
   }
 }
 
-function onFocusLocation(lat, lng) {
+function onFocusLocation(lat, lng, zoom) {
   if (lat != null && lng != null && mapRef.value) {
-    mapRef.value.zoomTo(lat, lng, 12);
+    mapRef.value.zoomTo(lat, lng, zoom || 12);
   }
 }
 
