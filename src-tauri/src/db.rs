@@ -320,6 +320,16 @@ impl Database {
         Ok(())
     }
 
+    /// 更新照片缩略图路径（缩略图重新生成后调用）
+    pub fn update_photo_thumbnail(&self, id: &str, thumbnail_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE photos SET thumbnail_path=?1, updated_at=?2 WHERE id=?3",
+            params![thumbnail_path, Utc::now().to_rfc3339(), id],
+        )?;
+        Ok(())
+    }
+
     pub fn get_all_photos(&self) -> Result<Vec<Photo>, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(

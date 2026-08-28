@@ -43,6 +43,22 @@
               ✅ 已为 {{ geocodeResult }} 张照片补全地址
             </div>
           </div>
+
+          <!-- 重新生成缩略图 -->
+          <div class="geocode-section">
+            <button class="geocode-btn" @click="doRegenerateThumbs"
+              :disabled="regenerating || store.photos.length === 0">
+              <span v-if="regenerating">重新生成中 {{ thumbDone }}/{{ thumbTotal }}...</span>
+              <span v-else>🖼️ 重新生成全部缩略图</span>
+            </button>
+            <button v-if="regenerating" class="geocode-cancel-btn" @click="cancelGeocode">取消</button>
+            <p class="geocode-desc">
+              修复旧版本生成的竖拍照片方向错误（约几秒到几十秒）
+            </p>
+            <div v-if="thumbResult != null" class="geocode-result">
+              ✅ 已重新生成 {{ thumbResult }} 张缩略图
+            </div>
+          </div>
         </div>
 
         <!-- AI 游记配置 -->
@@ -146,6 +162,10 @@ const geocodeDone = ref(0);
 const geocodeTotal = ref(0);
 const geocodeResult = ref(null);
 const geocodeForce = ref(false);
+const regenerating = ref(false);
+const thumbDone = ref(0);
+const thumbTotal = ref(0);
+const thumbResult = ref(null);
 let unlistenGeocode = null;
 
 async function doBatchGeocode() {
@@ -171,6 +191,33 @@ async function cancelGeocode() {
     await cancelLongTask();
   } catch (e) {
     console.warn("取消失败:", e);
+  }
+}
+
+async function doRegenerateThumbs() {
+  if (regenerating.value) return;
+  regenerating.value = true;
+  thumbDone.value = 0;
+  thumbTotal.value = store.photos.length;
+  thumbResult.value = null;
+  let unlistenThumb = null;
+  try {
+    const { onImportProgress, regenerateThumbnails, clearImageCache } = await import("../utils/tauri");
+    unlistenThumb = await onImportProgress((done, total) => {
+      if (done < 0) return;
+      thumbDone.value = done;
+      thumbTotal.value = total;
+    });
+    const count = await regenerateThumbnails();
+    thumbResult.value = count;
+    clearImageCache();
+    await store.loadPhotos();
+    store.importProgress = null;
+  } catch (e) {
+    console.error("重新生成缩略图失败:", e);
+  } finally {
+    if (unlistenThumb) unlistenThumb();
+    regenerating.value = false;
   }
 }
 

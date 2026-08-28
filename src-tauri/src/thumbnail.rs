@@ -11,6 +11,14 @@ pub fn generate_thumbnail(
     src_path: &str,
     thumbs_dir: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    generate_thumbnail_impl(src_path, thumbs_dir, false)
+}
+
+fn generate_thumbnail_impl(
+    src_path: &str,
+    thumbs_dir: &str,
+    force: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
     std::fs::create_dir_all(thumbs_dir)?;
 
     // 先检查缩略图是否已存在（根据文件路径生成 hash）
@@ -21,7 +29,7 @@ pub fn generate_thumbnail(
     let thumb_name = format!("{}.jpg", file_hash);
     let thumb_path = PathBuf::from(thumbs_dir).join(&thumb_name);
     
-    if thumb_path.exists() {
+    if thumb_path.exists() && !force {
         return Ok(thumb_path.to_string_lossy().to_string());
     }
 
@@ -42,6 +50,14 @@ pub fn generate_thumbnail(
     encoder.encode_image(&thumbnail)?;
 
     Ok(thumb_path.to_string_lossy().to_string())
+}
+
+/// 强制重新生成缩略图（EXIF 方向算法升级后用于迁移旧缩略图）
+pub fn regenerate_thumbnail(
+    src_path: &str,
+    thumbs_dir: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    generate_thumbnail_impl(src_path, thumbs_dir, true)
 }
 
 pub fn generate_thumbnail_from_image(

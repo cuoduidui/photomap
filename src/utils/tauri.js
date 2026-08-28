@@ -220,6 +220,10 @@ export async function getImageBase64(path) {
   }
 }
 
+export async function regenerateThumbnails() {
+  return invoke("regenerate_thumbnails");
+}
+
 export function clearImageCache() {
   imageCache.clear();
   thumbCount = 0;

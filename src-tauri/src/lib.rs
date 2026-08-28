@@ -82,6 +82,7 @@ pub fn run() {
             commands::get_map_bounds,
             commands::get_clustered_photos,
             commands::get_image_base64,
+            commands::regenerate_thumbnails,
             commands::get_tags,
             commands::create_tag,
             commands::delete_tag,

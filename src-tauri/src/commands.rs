@@ -765,6 +765,65 @@ pub async fn get_image_base64(
     .map_err(|e| e.to_string())?
 }
 
+/// 强制重新生成全部缩略图（EXIF 方向算法升级后的迁移工具）
+#[tauri::command]
+pub async fn regenerate_thumbnails(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<usize, String> {
+    state.cancel_flag.store(false, Ordering::Relaxed);
+    let cancel_flag = state.cancel_flag.clone();
+    let db = state.db.clone();
+    let thumbs_dir = state.thumbs_dir.clone();
+
+    let photos = tokio::task::spawn_blocking(move || db.get_all_photos().map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    let total = photos.len();
+    if total == 0 {
+        return Ok(0);
+    }
+
+    let app_arc = Arc::new(app);
+    let processed = Arc::new(AtomicUsize::new(0));
+    let db_arc = state.db.clone();
+    let batch_cancel = cancel_flag.clone();
+    let batch_thumbs = thumbs_dir.clone();
+
+    let thread_pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus::get().min(4))
+        .build()
+        .unwrap();
+
+    let results: Vec<(String, Option<String>)> = thread_pool.install(|| {
+        photos
+            .par_iter()
+            .filter_map(|photo| {
+                if batch_cancel.load(Ordering::Relaxed) {
+                    return None;
+                }
+                let thumb = thumbnail::regenerate_thumbnail(&photo.file_path, &batch_thumbs).ok();
+                let count = processed.fetch_add(1, Ordering::Relaxed) + 1;
+                if count % 10 == 0 || count == total {
+                    let _ = app_arc.emit("import-progress", (count, total));
+                }
+                Some((photo.id.clone(), thumb))
+            })
+            .collect()
+    });
+
+    let mut updated = 0usize;
+    for (photo_id, thumb) in results {
+        if let Some(t) = thumb {
+            let _ = db_arc.update_photo_thumbnail(&photo_id, &t);
+            updated += 1;
+        }
+    }
+
+    Ok(updated)
+}
+
 #[tauri::command]
 pub fn save_export_file(path: String, data_base64: String) -> Result<(), String> {
     use base64::Engine;
