@@ -148,7 +148,8 @@
 
         <!-- 照片列表 -->
         <div class="detail-photos">
-          <div v-for="photo in pagedTripPhotos" :key="photo.id" class="detail-photo-item">
+          <div v-for="(photo, gi) in pagedTripPhotos" :key="photo.id" class="detail-photo-item"
+            :data-idx="(photoPage - 1) * PHOTO_PAGE_SIZE + gi">
             <div class="photo-item-thumb" @click="emit('photo-click', photo)">
               <img v-if="thumbCache.get(photo.id)" :src="thumbCache.get(photo.id)" alt="" />
               <div v-else class="photo-placeholder">
@@ -162,6 +163,11 @@
                 <span v-if="photo.city" class="item-city">📍 {{ photo.city }}</span>
               </div>
             </div>
+            <button v-if="journalRefs.has((photoPage - 1) * PHOTO_PAGE_SIZE + gi)" class="journal-link-btn"
+              :title="'在游记中定位这张照片（编号 ' + ((photoPage - 1) * PHOTO_PAGE_SIZE + gi + 1) + '）'"
+              @click.stop="scrollToJournalPhoto((photoPage - 1) * PHOTO_PAGE_SIZE + gi)">
+              📖 {{ (photoPage - 1) * PHOTO_PAGE_SIZE + gi + 1 }}
+            </button>
             <button class="remove-photo-btn" @click.stop="removePhotoFromTrip(photo)" title="从游记中移除">
               ✕
             </button>
@@ -467,6 +473,19 @@ const pagedTripPhotos = computed(() => {
   const start = (photoPage.value - 1) * PHOTO_PAGE_SIZE;
   const end = start + PHOTO_PAGE_SIZE;
   return tripPhotos.value.slice(start, end);
+});
+
+// 游记正文中引用到的照片索引（[photo:N] → N-1）
+const journalRefs = computed(() => {
+  const set = new Set();
+  const text = (activeTrip.value && activeTrip.value.journal_text) || "";
+  const re = /\[photo:(\d+)\]/gi;
+  let m;
+  while ((m = re.exec(text))) {
+    const idx = parseInt(m[1], 10) - 1;
+    if (idx >= 0 && idx < tripPhotos.value.length) set.add(idx);
+  }
+  return set;
 });
 
 function prevPhotoPage() {
@@ -775,16 +794,75 @@ async function loadJournalPhotos() {
           div.dataset.idx = idx;
           div.innerHTML = `
             <img src="${b64}" alt="照片${idx + 1}" />
-            <div class="journal-photo-caption">照片 ${idx + 1} / ${tripPhotos.value.length}</div>
+            <div class="journal-photo-caption">
+              <span class="journal-photo-num">📷 ${idx + 1} / ${tripPhotos.value.length}</span>
+              <span class="journal-locate-btn" title="在下方照片列表中定位这张照片">⬇ 定位到照片列表</span>
+            </div>
           `;
           div.addEventListener("click", () => {
             viewerIndex.value = idx;
             viewerVisible.value = true;
           });
+          const locateBtn = div.querySelector(".journal-locate-btn");
+          if (locateBtn) {
+            locateBtn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              scrollToPhotoGrid(idx);
+            });
+          }
           el.replaceWith(div);
         }
       } catch {}
     }
+  }
+}
+
+// 高亮闪烁辅助
+function flashElement(el, cls) {
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), 1800);
+}
+
+// 从游记定位到照片网格
+function scrollToPhotoGrid(idx) {
+  const targetPage = Math.floor(idx / PHOTO_PAGE_SIZE) + 1;
+  if (photoPage.value !== targetPage) {
+    photoPage.value = targetPage;
+    loadCurrentPageThumbs();
+  }
+  nextTick(() => {
+    const el = document.querySelector(`.detail-photo-item[data-idx="${idx}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      flashElement(el, "flash");
+    }
+  });
+}
+
+// 从照片网格定位到游记正文中的对应插图
+function scrollToJournalPhoto(idx) {
+  const journalEl = document.querySelector(".journal-text");
+  if (!journalEl) return;
+  const find = () => journalEl.querySelector(`.journal-photo[data-idx="${idx}"]`);
+  const el = find();
+  if (!el) {
+    // 插图尚未加载完成时，先补载再定位
+    loadJournalPhotos().then(() => {
+      nextTick(() => {
+        const el2 = find();
+        if (el2) {
+          el2.scrollIntoView({ behavior: "smooth", block: "center" });
+          flashElement(el2, "flash");
+        }
+      });
+    });
+    return;
+  }
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    flashElement(el, "flash");
   }
 }
 
@@ -1569,6 +1647,31 @@ onUnmounted(() => {
   font-size: 0.7rem;
   color: var(--text-muted);
   margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.journal-photo-num {
+  color: var(--text-muted);
+}
+.journal-locate-btn {
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(14, 165, 233, 0.08);
+  transition: background 0.15s ease;
+}
+.journal-locate-btn:hover {
+  background: rgba(14, 165, 233, 0.18);
+}
+.journal-photo.flash {
+  animation: journal-flash 1.8s ease;
+}
+@keyframes journal-flash {
+  0%, 100% { box-shadow: none; }
+  20% { box-shadow: 0 0 0 3px var(--accent), 0 0 16px var(--accent-glow); border-radius: var(--radius-sm); }
 }
 .journal-empty {
   padding: 20px 16px;
@@ -1653,6 +1756,27 @@ onUnmounted(() => {
 .detail-photo-item:hover {
   background: var(--bg-hover);
   border-color: var(--border-glow);
+}
+.detail-photo-item.flash {
+  animation: photo-flash 1.8s ease;
+  border-color: var(--accent);
+}
+@keyframes photo-flash {
+  0%, 100% { background: transparent; }
+  20% { background: rgba(14, 165, 233, 0.12); }
+}
+.journal-link-btn {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--accent);
+  background: rgba(14, 165, 233, 0.08);
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+.journal-link-btn:hover {
+  background: rgba(14, 165, 233, 0.18);
 }
 .photo-item-thumb {
   width: 48px;
