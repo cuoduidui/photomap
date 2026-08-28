@@ -347,15 +347,17 @@ pub async fn delete_photo(id: String, state: State<'_, AppState>) -> Result<(), 
         .map_err(|e| e.to_string())??;
 
     let thumbs_dir = state.thumbs_dir.clone();
-    let photos_dir = format!("{}/photos", state.data_dir);
+    let photos_dir = std::path::Path::new(&state.data_dir).join("photos");
+    let thumbs_dir_path = std::path::Path::new(&thumbs_dir);
     for path in paths {
         let Some(path) = path else { continue };
+        let path_obj = std::path::Path::new(&path);
         // 删除应用内存储的照片副本（仅当位于 data_dir/photos 下，避免误删用户原图）
-        if path.starts_with(&photos_dir) {
+        if path_obj.starts_with(&photos_dir) {
             let _ = std::fs::remove_file(&path);
         }
         // 删除缩略图与人脸缩略图（仅限应用缩略图目录）
-        if path.starts_with(&thumbs_dir) {
+        if path_obj.starts_with(thumbs_dir_path) {
             let _ = std::fs::remove_file(&path);
         }
     }
@@ -591,7 +593,7 @@ pub async fn delete_tag(id: String, state: State<'_, AppState>) -> Result<(), St
         .map_err(|e| e.to_string())??;
     // 清理标签的人脸缩略图文件
     if let Some(thumb) = face_thumb {
-        if thumb.starts_with(&thumbs_dir) {
+        if std::path::Path::new(&thumb).starts_with(std::path::Path::new(&thumbs_dir)) {
             let _ = std::fs::remove_file(&thumb);
         }
     }
@@ -1518,8 +1520,9 @@ pub async fn analyze_faces(
 
     // 清除上次自动生成的标签（保留手动创建的），并删除旧的人脸缩略图文件
     let old_face_thumbs = db_arc.delete_auto_person_tags().map_err(|e| e.to_string())?;
+    let thumbs_dir_path = std::path::Path::new(&thumbs_dir);
     for thumb in old_face_thumbs {
-        if thumb.starts_with(&thumbs_dir) {
+        if std::path::Path::new(&thumb).starts_with(thumbs_dir_path) {
             let _ = std::fs::remove_file(&thumb);
         }
     }
