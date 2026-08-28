@@ -43,7 +43,12 @@ const cities = computed(() => {
   if (!store.filter.province) return [];
   const provinceData = store.treeByLocation[store.filter.province];
   if (!provinceData) return [];
-  return Object.keys(provinceData);
+  const list = Object.keys(provinceData);
+  // 地点树可能以区县/地址作为筛选值，下拉中补一项便于回显
+  if (store.filter.city && !list.includes(store.filter.city)) {
+    list.push(store.filter.city);
+  }
+  return list;
 });
 
 function onProvinceChange() {

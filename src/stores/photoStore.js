@@ -50,6 +50,7 @@ export const usePhotoStore = defineStore("photos", {
         // 城市字段可能是完整中文地址或区县·街道展示名，需同时匹配原 city/address/组合名
         result = result.filter((p) => {
           if (p.city === state.filter.city) return true;
+          if (p.district === state.filter.city) return true;
           if (p.address === state.filter.city) return true;
           const combo = [p.district, p.address].filter(Boolean).join("·");
           return combo === state.filter.city;
