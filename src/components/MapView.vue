@@ -603,10 +603,12 @@ async function updateMarkers() {
 
     for (const cluster of clusters) {
       // 标记必须遵循当前筛选：只显示包含被筛选照片的聚类
-      if (!cluster.photo_ids || !cluster.photo_ids.some((id) => filteredIdSet.has(id))) {
+      const filteredIds = (cluster.photo_ids || []).filter((id) => filteredIdSet.has(id));
+      if (filteredIds.length === 0) {
         continue;
       }
-      const marker = createMarker(cluster);
+      // 标记数量用筛选后的照片数，保证与点开列表数量一致
+      const marker = createMarker(cluster, filteredIds.length);
       markers.push(marker);
       marker.setMap(map);
     }
@@ -617,9 +619,9 @@ async function updateMarkers() {
   }
 }
 
-function createMarker(cluster) {
+function createMarker(cluster, filteredCount) {
   const markerContent = document.createElement("div");
-  const count = cluster.count || 1;
+  const count = filteredCount != null ? filteredCount : (cluster.count || 1);
   let markerSize = 32;
 
   if (cluster.is_cluster) {
