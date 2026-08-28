@@ -33,7 +33,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["select"]);
-const expanded = ref(true);
+// 默认全部收起，点击节点时才展开下一级
+const expanded = ref(false);
 
 const hasChildren = computed(() => props.node.children && props.node.children.length > 0);
 
@@ -48,7 +49,7 @@ function toggle() {
 
 function onRowClick() {
   emit("select", props.node);
-  if (props.node.kind === "province" && hasChildren.value) {
+  if (hasChildren.value) {
     toggle();
   }
 }
