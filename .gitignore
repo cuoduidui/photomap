@@ -14,3 +14,4 @@ src-tauri/gen/
 *.db-shm
 *.db-wal
 photos/
+store/cert.pfx
