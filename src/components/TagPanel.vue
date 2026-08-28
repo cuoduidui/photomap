@@ -19,6 +19,7 @@
       <div class="analyze-bar-track">
         <div class="analyze-bar-fill" :style="{ width: analyzePercent + '%' }"></div>
       </div>
+      <button class="analyze-cancel-btn" @click="cancelAnalyze">取消</button>
     </div>
 
     <div v-if="showAdd" class="add-tag-form">
@@ -320,6 +321,15 @@ async function onAnalyzeFaces() {
   }
 }
 
+async function cancelAnalyze() {
+  try {
+    const { cancelLongTask } = await import("../utils/tauri");
+    await cancelLongTask();
+  } catch (e) {
+    console.warn("取消失败:", e);
+  }
+}
+
 function startEditName(tag) {
   editingId.value = tag.id;
   editingName.value = tag.name;
@@ -523,6 +533,18 @@ watch(() => store.tags, () => {
 .analyze-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.analyze-cancel-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+.analyze-cancel-btn:hover {
+  background: rgba(248, 113, 113, 0.2);
 }
 .add-btn {
   width: 24px;

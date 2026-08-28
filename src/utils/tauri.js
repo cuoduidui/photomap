@@ -5,6 +5,10 @@ export async function importPhotos(paths, isFolder) {
   return invoke("import_photos", { paths, isFolder });
 }
 
+export async function cancelLongTask() {
+  return invoke("cancel_long_task");
+}
+
 export async function getAllPhotos() {
   return invoke("get_all_photos");
 }

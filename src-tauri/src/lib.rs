@@ -55,12 +55,14 @@ pub fn run() {
                 geocoder,
                 data_dir: app_data_dir.to_string_lossy().to_string(),
                 thumbs_dir: thumbs_dir.to_string_lossy().to_string(),
+                cancel_flag: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             });
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::import_photos,
+            commands::cancel_long_task,
             commands::get_all_photos,
             commands::get_photos_paginated,
             commands::count_photos,

@@ -39,6 +39,7 @@
       <div class="progress-bar">
         <div class="fill" :style="{ width: importProgressPercent + '%' }" :class="{ indeterminate: store.importProgress.scanning }" />
       </div>
+      <button class="cancel-btn" @click="onCancelLongTask">取消</button>
     </div>
     <!-- 逆地理编码进度 -->
     <div v-else-if="store.geocodeProgress" class="progress-container">
@@ -46,6 +47,7 @@
       <div class="progress-bar">
         <div class="fill" :style="{ width: geocodeProgressPercent + '%' }" />
       </div>
+      <button class="cancel-btn" @click="onCancelLongTask">取消</button>
     </div>
 
     <!-- 筛选器 -->
@@ -111,7 +113,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { usePhotoStore } from "./stores/photoStore";
-import { debugLog, clearDebugLog, onImportProgress, onGeocodeProgress } from "./utils/tauri";
+import { debugLog, clearDebugLog, onImportProgress, onGeocodeProgress, cancelLongTask } from "./utils/tauri";
 import MapView from "./components/MapView.vue";
 import PhotoList from "./components/PhotoList.vue";
 import FilterBar from "./components/FilterBar.vue";
@@ -149,6 +151,15 @@ const importProgressPercent = computed(() => {
   if (!store.importProgress || !store.importProgress.total || store.importProgress.scanning) return 0;
   return Math.min(100, Math.round((store.importProgress.done / store.importProgress.total) * 100));
 });
+
+async function onCancelLongTask() {
+  try {
+    await cancelLongTask();
+    showToast("已请求取消，正在停止...");
+  } catch (e) {
+    console.warn("取消失败:", e);
+  }
+}
 const geocodeProgressPercent = computed(() => {
   if (!store.geocodeProgress || !store.geocodeProgress.total) return 0;
   return Math.min(100, Math.round((store.geocodeProgress.done / store.geocodeProgress.total) * 100));

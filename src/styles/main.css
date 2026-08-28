@@ -186,6 +186,18 @@ button {
   0% { margin-left: -30%; }
   100% { margin-left: 100%; }
 }
+.progress-container .cancel-btn {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  border-radius: 6px;
+  color: var(--muted);
+  background: var(--accent-light);
+}
+.progress-container .cancel-btn:hover {
+  color: #fff;
+  background: #f87171;
+}
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

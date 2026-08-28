@@ -217,6 +217,7 @@ impl Geocoder {
         &self,
         coords: Vec<(f64, f64)>,
         progress: impl Fn(usize, usize),
+        cancel_flag: Option<&std::sync::Arc<std::sync::atomic::AtomicBool>>,
     ) -> Vec<(f64, f64, Option<GeocodeResult>)> {
         let semaphore = Arc::new(Semaphore::new(5));
         let mut results = Vec::with_capacity(coords.len());
@@ -286,6 +287,11 @@ impl Geocoder {
 
         let mut completed = 0;
         for task in tasks {
+            if let Some(flag) = cancel_flag {
+                if flag.load(std::sync::atomic::Ordering::Relaxed) {
+                    break;
+                }
+            }
             let result = task.await;
             results.push(result);
             completed += 1;

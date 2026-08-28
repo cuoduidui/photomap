@@ -31,6 +31,7 @@
               </span>
               <span v-else>📍 批量补全地址信息</span>
             </button>
+            <button v-if="geocoding" class="geocode-cancel-btn" @click="cancelGeocode">取消</button>
             <p class="geocode-desc">
               为有 GPS 坐标但缺少地址的照片自动补全省市区和详细地址
             </p>
@@ -161,6 +162,15 @@ async function doBatchGeocode() {
     console.error("逆地理编码失败:", e);
   } finally {
     geocoding.value = false;
+  }
+}
+
+async function cancelGeocode() {
+  try {
+    const { cancelLongTask } = await import("../utils/tauri");
+    await cancelLongTask();
+  } catch (e) {
+    console.warn("取消失败:", e);
   }
 }
 
@@ -386,6 +396,18 @@ async function addLocation() {
 .geocode-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.geocode-cancel-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+.geocode-cancel-btn:hover {
+  background: rgba(248, 113, 113, 0.2);
 }
 .btn-spinner {
   width: 14px;

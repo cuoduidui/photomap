@@ -20,6 +20,21 @@ pub struct AppState {
     pub geocoder: Geocoder,
     pub data_dir: String,
     pub thumbs_dir: String,
+    /// 长任务取消标记（导入/批量逆地理编码/人脸分析共用）
+    pub cancel_flag: Arc<AtomicBool>,
+}
+
+use std::sync::atomic::AtomicBool;
+
+/// 请求取消正在运行的长任务
+#[tauri::command]
+pub fn cancel_long_task(state: State<'_, AppState>) -> Result<(), String> {
+    state.cancel_flag.store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+fn check_cancel(cancel_flag: &Arc<AtomicBool>) -> bool {
+    cancel_flag.load(Ordering::Relaxed)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -157,6 +172,8 @@ pub async fn import_photos(
     paths: Vec<String>,
     is_folder: bool,
 ) -> Result<ImportResult, String> {
+    state.cancel_flag.store(false, Ordering::Relaxed);
+    let cancel_flag = state.cancel_flag.clone();
     let thumbs_dir = state.thumbs_dir.clone();
     std::fs::create_dir_all(&thumbs_dir).map_err(|e| e.to_string())?;
 
@@ -169,6 +186,9 @@ pub async fn import_photos(
         let mut visited = std::collections::HashSet::new();
         let mut scan_count = 0usize;
         for p in &paths {
+            if check_cancel(&cancel_flag) {
+                return Ok(ImportResult { total: 0, success: 0, skipped: 0, failed: 0 });
+            }
             files.extend(scan_directory(p, &mut visited, &mut |count| {
                 scan_count = count;
                 // 扫描期间用 -1 表示"正在扫描"，避免 UI 无反馈
@@ -206,15 +226,22 @@ pub async fn import_photos(
         .unwrap();
 
     for batch_idx in 0..num_batches {
+        if check_cancel(&cancel_flag) {
+            break;
+        }
         let batch_start = batch_idx * batch_size;
         let batch_end = (batch_start + batch_size).min(total);
         let batch_files = &all_files[batch_start..batch_end];
+        let batch_cancel = cancel_flag.clone();
 
         // 处理当前批次
         let batch_photos: Vec<Photo> = thread_pool.install(|| {
             batch_files
                 .par_iter()
-                .map(|file_path| {
+                .filter_map(|file_path| {
+                    if batch_cancel.load(Ordering::Relaxed) {
+                        return None;
+                    }
                     let file_name = Path::new(file_path)
                         .file_name()
                         .and_then(|n| n.to_str())
@@ -248,10 +275,13 @@ pub async fn import_photos(
                         let _ = app_arc.emit("import-progress", (count, total));
                     }
 
-                    photo
+                    Some(photo)
                 })
                 .collect()
         });
+        if check_cancel(&cancel_flag) {
+            break;
+        }
 
         // 批量插入数据库
         match db.insert_photos_batch(&batch_photos) {
@@ -437,6 +467,7 @@ pub async fn batch_geocode(
     state: State<'_, AppState>,
     force: Option<bool>,
 ) -> Result<usize, String> {
+    state.cancel_flag.store(false, Ordering::Relaxed);
     if !state.geocoder.has_api_key() {
         return Err("未配置高德API Key".to_string());
     }
@@ -456,7 +487,7 @@ pub async fn batch_geocode(
     let geocoder = &state.geocoder;
     let results = geocoder.batch_reverse_geocode(coords, |done, total| {
         let _ = app.emit("geocode-progress", (done, total));
-    }).await;
+    }, Some(&state.cancel_flag)).await;
 
     let mut updated = 0;
     let photo_coords: Vec<(String, f64, f64)> = photos
@@ -1402,6 +1433,8 @@ pub async fn analyze_faces(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<AnalyzeFacesResult, String> {
+    state.cancel_flag.store(false, Ordering::Relaxed);
+    let cancel_flag = state.cancel_flag.clone();
     let db = state.db.clone();
     let thumbs_dir = state.thumbs_dir.clone();
 
@@ -1436,11 +1469,15 @@ pub async fn analyze_faces(
         .num_threads(num_cpus::get().min(3))
         .build()
         .unwrap();
+    let detect_cancel = cancel_flag.clone();
 
     let all_detections: Vec<face::FaceDetection> = thread_pool.install(|| {
         photos
             .par_iter()
             .filter_map(|photo| {
+                if detect_cancel.load(Ordering::Relaxed) {
+                    return None;
+                }
                 let img = match crate::image_utils::open_with_orientation(&photo.file_path).ok() {
                     Some(img) => img,
                     None => {
@@ -1482,6 +1519,16 @@ pub async fn analyze_faces(
             .flatten()
             .collect()
     });
+
+    // 用户取消：跳过生成人物标签
+    if check_cancel(&cancel_flag) {
+        return Ok(AnalyzeFacesResult {
+            total_photos: total,
+            photos_with_faces: 0,
+            total_faces: 0,
+            persons_found: 0,
+        });
+    }
 
     let total_faces = all_detections.len();
     let photos_with_faces = all_detections
