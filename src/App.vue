@@ -215,7 +215,8 @@ async function runBatchGeocode() {
   }
 }
 
-function onFocusLocation(lat, lng, zoom) {
+function onFocusLocation(payload) {
+  const { lat, lng, zoom } = payload || {};
   if (lat != null && lng != null && mapRef.value) {
     mapRef.value.zoomTo(lat, lng, zoom || 12);
   }
