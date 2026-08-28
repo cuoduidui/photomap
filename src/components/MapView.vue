@@ -30,6 +30,49 @@
       </button>
     </div>
 
+    <!-- 路线回放入口 -->
+    <div v-if="mapReady" class="route-entry">
+      <button class="route-btn" :class="{ active: routeLine }" @click="toggleRoutePlay"
+        :title="'按拍摄时间在地图上重走一遍旅程'">
+        <span>{{ routeLine ? '⏹ 停止回放' : '🗺️ 路线回放' }}</span>
+      </button>
+    </div>
+
+    <!-- 路线回放控制条 -->
+    <div v-if="routeLine" class="route-player" @click.stop>
+      <div class="route-thumb">
+        <img v-if="routeThumb" :src="routeThumb" alt="" />
+        <div v-else class="route-thumb-ph">🖼️</div>
+      </div>
+      <div class="route-info">
+        <div class="route-name" :title="currentRoutePhoto ? currentRoutePhoto.file_name : ''">
+          {{ currentRoutePhoto ? currentRoutePhoto.file_name : '' }}
+        </div>
+        <div class="route-meta">
+          <span v-if="currentRoutePhoto && currentRoutePhoto.taken_time">{{ formatTime(currentRoutePhoto.taken_time) }}</span>
+          <span v-if="currentRoutePhoto && currentRoutePhoto.address" class="route-addr">{{ currentRoutePhoto.address }}</span>
+        </div>
+        <div class="route-progress">
+          <div class="route-progress-bar">
+            <div class="route-progress-fill" :style="{ width: routeProgressPct + '%' }"></div>
+          </div>
+          <span class="route-step">{{ routeStepText }}</span>
+        </div>
+      </div>
+      <div class="route-controls">
+        <button class="route-ctrl" @click="togglePause" :title="routePaused ? '继续' : '暂停'">
+          {{ routePaused ? '▶' : (routeFinished ? '↻' : '⏸') }}
+        </button>
+        <button class="route-ctrl" @click="stopRoute" title="停止并清除">⏹</button>
+        <select class="route-speed" v-model="routeSpeed" title="播放速度">
+          <option :value="2400">0.5×</option>
+          <option :value="1200">1×</option>
+          <option :value="600">2×</option>
+          <option :value="300">4×</option>
+        </select>
+      </div>
+    </div>
+
     <!-- 统计信息 -->
     <div v-if="mapReady" class="map-summary">
       <span class="summary-dot"></span>
@@ -110,6 +153,22 @@ let isUpdating = false;
 let mapInitializing = true;
 let updateTimer = null;
 
+// 路线回放状态
+let routeLine = null;
+let startMarker = null;
+let endMarker = null;
+let carMarker = null;
+let routeTimer = null;
+let routePhotos = [];
+let routeSeg = 0;
+let routeProgress = 0;
+let routeThumbToken = 0;
+const routePlaying = ref(false);
+const routePaused = ref(false);
+const routeFinished = ref(false);
+const routeSpeed = ref(1200);
+const routeThumb = ref("");
+
 // 分页计算
 const totalPages = computed(() => {
   return Math.ceil(popupPhotos.value.length / PAGE_SIZE);
@@ -119,6 +178,23 @@ const pagedPhotos = computed(() => {
   const start = (currentPage.value - 1) * PAGE_SIZE;
   const end = start + PAGE_SIZE;
   return popupPhotos.value.slice(start, end);
+});
+
+const currentRoutePhoto = computed(() => {
+  if (!routeLine || routePhotos.length === 0) return null;
+  const idx = Math.max(0, Math.min(routePhotos.length - 1, Math.round(routeSeg + routeProgress)));
+  return routePhotos[idx];
+});
+
+const routeProgressPct = computed(() => {
+  if (routePhotos.length < 2) return 0;
+  return ((routeSeg + routeProgress) / (routePhotos.length - 1)) * 100;
+});
+
+const routeStepText = computed(() => {
+  if (routePhotos.length === 0) return "0 / 0";
+  const cur = Math.max(1, Math.min(routePhotos.length, Math.round(routeSeg + routeProgress) + 1));
+  return `${cur} / ${routePhotos.length}`;
 });
 
 function prevPage() {
@@ -163,6 +239,214 @@ async function loadCurrentPageThumbs() {
     }
   }
 }
+
+// ---------- 路线回放 ----------
+function toggleRoutePlay() {
+  if (routeLine) {
+    stopRoute();
+  } else {
+    startRoute();
+  }
+}
+
+function startRoute() {
+  stopRoute();
+  routePhotos = store.filteredPhotos
+    .filter((p) => p.latitude && p.longitude)
+    .sort((a, b) => {
+      const ta = a.taken_time || "9999-12-31 23:59:59";
+      const tb = b.taken_time || "9999-12-31 23:59:59";
+      if (ta !== tb) return ta < tb ? -1 : 1;
+      return (a.id || "").localeCompare(b.id || "");
+    });
+
+  if (routePhotos.length < 2) {
+    summaryText.value = "路线回放需要至少 2 张已定位照片（当前筛选下不足）";
+    return;
+  }
+
+  drawRouteLine();
+  fitRouteBounds();
+
+  routeSeg = 0;
+  routeProgress = 0;
+  routeFinished.value = false;
+  routePaused.value = false;
+  routePlaying.value = true;
+  placeCar(routePhotos[0].latitude, routePhotos[0].longitude);
+  startTick();
+  loadRouteThumb(routePhotos[0]);
+}
+
+function drawRouteLine() {
+  const path = routePhotos.map((p) => [p.longitude, p.latitude]);
+  routeLine = new AMap.Polyline({
+    path,
+    strokeColor: "#0ea5e9",
+    strokeWeight: 5,
+    strokeOpacity: 0.85,
+    lineJoin: "round",
+    lineCap: "round",
+  });
+  routeLine.setMap(map);
+
+  const startEl = document.createElement("div");
+  startEl.style.cssText = "width:22px;height:22px;border-radius:50%;background:#22c55e;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);";
+  startEl.textContent = "起";
+  startMarker = new AMap.Marker({
+    position: path[0],
+    content: startEl,
+    offset: new AMap.Pixel(-11, -11),
+  });
+  startMarker.setMap(map);
+
+  const endEl = document.createElement("div");
+  endEl.style.cssText = "width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);";
+  endEl.textContent = "终";
+  endMarker = new AMap.Marker({
+    position: path[path.length - 1],
+    content: endEl,
+    offset: new AMap.Pixel(-11, -11),
+  });
+  endMarker.setMap(map);
+
+  const carEl = document.createElement("div");
+  carEl.style.cssText = "width:26px;height:26px;border-radius:50%;background:#0ea5e9;font-size:15px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(14,165,233,.55);";
+  carEl.textContent = "🚗";
+  carMarker = new AMap.Marker({
+    position: path[0],
+    content: carEl,
+    offset: new AMap.Pixel(-13, -13),
+  });
+  carMarker.setMap(map);
+}
+
+function placeCar(lat, lng) {
+  if (carMarker) carMarker.setPosition([lng, lat]);
+}
+
+function fitRouteBounds() {
+  if (!map || routePhotos.length === 0) return;
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  for (const p of routePhotos) {
+    minLat = Math.min(minLat, p.latitude);
+    maxLat = Math.max(maxLat, p.latitude);
+    minLng = Math.min(minLng, p.longitude);
+    maxLng = Math.max(maxLng, p.longitude);
+  }
+  const pad = 0.01;
+  map.setBounds(new AMap.Bounds(
+    new AMap.LngLat(minLng - pad, minLat - pad),
+    new AMap.LngLat(maxLng + pad, maxLat + pad)
+  ));
+}
+
+function startTick() {
+  if (routeTimer) clearInterval(routeTimer);
+  routeTimer = setInterval(tick, 50);
+}
+
+function tick() {
+  if (!routePlaying.value || routePaused.value || routePhotos.length < 2) return;
+  if (routeSeg >= routePhotos.length - 1) {
+    finishRoute();
+    return;
+  }
+
+  routeProgress += 50 / routeSpeed.value;
+  if (routeProgress >= 1) {
+    routeProgress = 0;
+    routeSeg++;
+    if (routeSeg >= routePhotos.length - 1) {
+      finishRoute();
+      return;
+    }
+    const p = routePhotos[routeSeg];
+    placeCar(p.latitude, p.longitude);
+    if (map) map.panTo([p.longitude, p.latitude]);
+    loadRouteThumb(p);
+  } else {
+    const a = routePhotos[routeSeg];
+    const b = routePhotos[routeSeg + 1];
+    const lat = a.latitude + (b.latitude - a.latitude) * routeProgress;
+    const lng = a.longitude + (b.longitude - a.longitude) * routeProgress;
+    placeCar(lat, lng);
+  }
+}
+
+function finishRoute() {
+  routePlaying.value = false;
+  routeFinished.value = true;
+  if (routeTimer) {
+    clearInterval(routeTimer);
+    routeTimer = null;
+  }
+  if (routePhotos.length) {
+    const last = routePhotos[routePhotos.length - 1];
+    placeCar(last.latitude, last.longitude);
+    loadRouteThumb(last);
+  }
+  summaryText.value = "路线回放完成 ✅";
+}
+
+function togglePause() {
+  if (!routeLine) return;
+  if (routeFinished.value) {
+    routeSeg = 0;
+    routeProgress = 0;
+    routeFinished.value = false;
+    routePaused.value = false;
+    routePlaying.value = true;
+    if (routePhotos.length) {
+      const first = routePhotos[0];
+      placeCar(first.latitude, first.longitude);
+      loadRouteThumb(first);
+    }
+    startTick();
+    return;
+  }
+  routePaused.value = !routePaused.value;
+  routePlaying.value = !routePaused.value;
+  if (routePlaying.value && !routeTimer) startTick();
+}
+
+function stopRoute() {
+  if (routeTimer) {
+    clearInterval(routeTimer);
+    routeTimer = null;
+  }
+  for (const obj of [routeLine, startMarker, endMarker, carMarker]) {
+    try { if (obj) obj.setMap(null); } catch {}
+  }
+  routeLine = null;
+  startMarker = null;
+  endMarker = null;
+  carMarker = null;
+  routePhotos = [];
+  routeSeg = 0;
+  routeProgress = 0;
+  routePlaying.value = false;
+  routePaused.value = false;
+  routeFinished.value = false;
+  routeThumb.value = "";
+  routeThumbToken++;
+}
+
+async function loadRouteThumb(photo) {
+  const token = ++routeThumbToken;
+  routeThumb.value = "";
+  if (!photo || !photo.thumbnail_path) return;
+  try {
+    const b64 = await getImageBase64(photo.thumbnail_path);
+    if (token === routeThumbToken && b64) {
+      routeThumb.value = b64;
+    }
+  } catch {}
+}
+
+watch(currentRoutePhoto, (p) => {
+  if (p && routePlaying.value) loadRouteThumb(p);
+});
 
 defineExpose({
   panTo,
@@ -410,6 +694,8 @@ function onPopupPhotoClick(photo) {
 }
 
 watch(() => store.filteredPhotos, () => {
+  // 筛选变化时停止路线回放，避免路线与标记不一致
+  if (routeLine) stopRoute();
   if (mapReady.value && !mapInitializing) {
     scheduleUpdate();
   }
@@ -424,6 +710,7 @@ onUnmounted(() => {
     clearTimeout(updateTimer);
     updateTimer = null;
   }
+  stopRoute();
   clearMarkers();
   if (satelliteLayer) {
     satelliteLayer.setMap(null);
@@ -558,6 +845,154 @@ onUnmounted(() => {
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 6px rgba(16, 172, 132, 0.5);
+}
+
+.route-entry {
+  position: absolute;
+  bottom: 24px;
+  left: 16px;
+  z-index: 10;
+}
+.route-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+.route-btn:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+.route-btn.active {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
+.route-player {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(520px, calc(100% - 32px));
+  padding: 10px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  z-index: 11;
+}
+.route-thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.route-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.route-thumb-ph {
+  font-size: 1.3rem;
+  opacity: 0.5;
+}
+.route-info {
+  flex: 1;
+  min-width: 0;
+}
+.route-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.route-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.route-addr {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.route-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.route-progress-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.route-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+.route-step {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.route-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.route-ctrl {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+.route-ctrl:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.route-speed {
+  height: 32px;
+  padding: 0 6px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  outline: none;
 }
 
 .popup-overlay {
