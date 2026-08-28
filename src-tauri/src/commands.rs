@@ -609,7 +609,16 @@ pub async fn get_map_bounds(state: State<'_, AppState>) -> Result<Option<Boundin
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {
         let coords = db.get_photo_coords().map_err(|e| e.to_string())?;
-        Ok(cluster::calculate_bounds(&coords))
+        let bounds = cluster::calculate_bounds(&coords).ok_or_else(|| "暂无已定位照片".to_string())?;
+        // EXIF 坐标为 WGS-84，地图使用 GCJ-02，显示前转换
+        let (min_lat, min_lng) = crate::coord::wgs84_to_gcj02(bounds.min_lat, bounds.min_lng);
+        let (max_lat, max_lng) = crate::coord::wgs84_to_gcj02(bounds.max_lat, bounds.max_lng);
+        Ok(Some(cluster::BoundingBox {
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+        }))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -623,7 +632,17 @@ pub async fn get_clustered_photos(
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {
         let coords = db.get_photo_coords().map_err(|e| e.to_string())?;
-        Ok(cluster::cluster_photos(&coords, zoom, None))
+        let points = cluster::cluster_photos(&coords, zoom, None);
+        // 转换为 GCJ-02 供高德地图显示
+        Ok(points
+            .into_iter()
+            .map(|mut p| {
+                let (lat, lng) = crate::coord::wgs84_to_gcj02(p.latitude, p.longitude);
+                p.latitude = lat;
+                p.longitude = lng;
+                p
+            })
+            .collect())
     })
     .await
     .map_err(|e| e.to_string())?

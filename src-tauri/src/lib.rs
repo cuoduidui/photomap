@@ -4,6 +4,7 @@ mod secure;
 mod thumbnail;
 mod geocode;
 mod cluster;
+mod coord;
 mod export;
 mod trip;
 mod slideshow;

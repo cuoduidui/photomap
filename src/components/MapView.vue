@@ -307,6 +307,7 @@ async function updateMarkers() {
       summaryText.value = "暂无已定位照片";
       return;
     }
+    const filteredIdSet = new Set(photos.map((p) => p.id));
 
     const zoom = Math.round(map.getZoom());
     const clusters = await getClusteredPhotos(zoom);
@@ -314,6 +315,10 @@ async function updateMarkers() {
     summaryText.value = `当前视图：${viewLevelText(zoom)} · ${photos.length} 张已标记`;
 
     for (const cluster of clusters) {
+      // 标记必须遵循当前筛选：只显示包含被筛选照片的聚类
+      if (!cluster.photo_ids || !cluster.photo_ids.some((id) => filteredIdSet.has(id))) {
+        continue;
+      }
       const marker = createMarker(cluster);
       markers.push(marker);
       marker.setMap(map);
@@ -358,7 +363,7 @@ function createMarker(cluster) {
       if (currentZoom >= maxZoom - 1) {
         const photos = store.filteredPhotos.filter((p) => cluster.photo_ids.includes(p.id));
         popupPhotos.value = photos;
-        popupLocation.value = `${photos.length} 张照片在此处`;
+        popupLocation.value = photos[0]?.address || photos[0]?.city || `${photos.length} 张照片在此处`;
         currentPage.value = 1;
         loadCurrentPageThumbs();
       } else {
@@ -367,7 +372,7 @@ function createMarker(cluster) {
     } else {
       const photos = store.filteredPhotos.filter((p) => cluster.photo_ids.includes(p.id));
       popupPhotos.value = photos;
-      popupLocation.value = photos[0]?.city || photos[0]?.address || "";
+      popupLocation.value = photos[0]?.address || photos[0]?.city || photos[0]?.province || "";
       currentPage.value = 1;
       loadCurrentPageThumbs();
     }

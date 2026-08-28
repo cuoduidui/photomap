@@ -34,8 +34,9 @@ pub fn calculate_bounds(coords: &[PhotoCoord]) -> Option<BoundingBox> {
         if c.longitude > max_lng { max_lng = c.longitude; }
     }
 
-    let lat_pad = (max_lat - min_lat) * 0.1;
-    let lng_pad = (max_lng - min_lng) * 0.1;
+    // 单点或同点照片时 span 为 0，给一个最小 padding，避免地图收到零宽 bounds
+    let lat_pad = ((max_lat - min_lat) * 0.1).max(0.02);
+    let lng_pad = ((max_lng - min_lng) * 0.1).max(0.02);
 
     Some(BoundingBox {
         min_lat: min_lat - lat_pad,
