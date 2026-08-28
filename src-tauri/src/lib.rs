@@ -6,6 +6,7 @@ mod geocode;
 mod cluster;
 mod coord;
 mod export;
+mod image_utils;
 mod trip;
 mod slideshow;
 mod face;

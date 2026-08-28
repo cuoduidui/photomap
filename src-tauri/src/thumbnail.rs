@@ -1,4 +1,4 @@
-use image::{DynamicImage, ImageReader, GenericImageView};
+use image::{DynamicImage, GenericImageView};
 use std::path::{Path, PathBuf};
 
 // 缩略图尺寸 - 减小尺寸以降低内存和磁盘占用
@@ -25,7 +25,8 @@ pub fn generate_thumbnail(
         return Ok(thumb_path.to_string_lossy().to_string());
     }
 
-    let img = ImageReader::open(src_path)?.decode()?;
+    // 应用 EXIF 方向，保证竖拍照片缩略图方向正确
+    let img = crate::image_utils::open_with_orientation(src_path)?;
     
     // 快速判断是否需要缩放
     let (w, h) = img.dimensions();

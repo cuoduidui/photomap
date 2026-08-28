@@ -161,7 +161,8 @@ pub fn generate_collage(
         let x = pad + col * (cell + gap);
         let y = header_h + row * (cell + gap);
 
-        match image::open(path) {
+        // 应用 EXIF 方向，保证竖拍照片在影集里方向正确
+        match crate::image_utils::open_with_orientation(path) {
             Ok(img) => {
                 let resized = resize_cover(&img, cell, cell);
                 imageops::overlay(&mut canvas, &resized, x as i64, y as i64);
@@ -251,7 +252,8 @@ pub fn generate_video(
         let _ = app.emit("export-progress", ((i + 1) as i32, count as i32));
 
         let frame_path = temp_dir.join(format!("frame_{}.jpg", i));
-        match image::open(path) {
+        // 应用 EXIF 方向，保证竖拍照片在视频里方向正确
+        match crate::image_utils::open_with_orientation(path) {
             Ok(img) => {
                 let mut frame: RgbaImage = ImageBuffer::new(vw, vh);
                 fill_gradient(&mut frame, [10, 14, 26, 255], [20, 20, 40, 255]);

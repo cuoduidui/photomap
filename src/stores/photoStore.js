@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import * as api from "../utils/tauri";
-import { getAllPhotoTags, getAllTrips, autoClusterTrips, analyzeFaces, updateTag, onFaceAnalyzeProgress, getTagPhotos } from "../utils/tauri";
+import { getAllPhotoTags, getAllTrips, autoClusterTrips, analyzeFaces, updateTag, onFaceAnalyzeProgress, getTagPhotos, removeCachedImages } from "../utils/tauri";
 
 export const usePhotoStore = defineStore("photos", {
   state: () => ({
@@ -282,6 +282,13 @@ export const usePhotoStore = defineStore("photos", {
     },
 
     async deletePhotos(photoIds) {
+      const removedPaths = [];
+      for (const id of photoIds) {
+        const photo = this.photos.find((p) => p.id === id);
+        if (photo) {
+          removedPaths.push(photo.file_path, photo.thumbnail_path);
+        }
+      }
       for (const id of photoIds) {
         try {
           await api.deletePhoto(id);
@@ -297,13 +304,15 @@ export const usePhotoStore = defineStore("photos", {
       await this.loadStats();
       await this.loadLocationCounts();
       await this.loadTags();
+      // 同步清除图片缓存，避免残留大图占用内存
+      removeCachedImages(removedPaths.filter(Boolean));
     },
 
-    async runBatchGeocode() {
+    async runBatchGeocode(force = false) {
       if (this.geocodeProgress) return 0;
       this.geocodeProgress = { done: 0, total: 0 };
       try {
-        const updated = await api.batchGeocode();
+        const updated = await api.batchGeocode(force);
         await this.loadPhotos();
         await this.loadLocationCounts();
         return updated;

@@ -1421,10 +1421,7 @@ pub async fn analyze_faces(
         photos
             .par_iter()
             .filter_map(|photo| {
-                let img = match image::ImageReader::open(&photo.file_path)
-                    .ok()
-                    .and_then(|r| r.decode().ok())
-                {
+                let img = match crate::image_utils::open_with_orientation(&photo.file_path).ok() {
                     Some(img) => img,
                     None => {
                         let count = processed.fetch_add(1, Ordering::Relaxed) + 1;
@@ -1505,9 +1502,7 @@ pub async fn analyze_faces(
         let first_photo = photos.iter().find(|p| p.id == first_detection.photo_id);
 
         let face_thumb = if let Some(photo) = first_photo {
-            let img = image::ImageReader::open(&photo.file_path)
-                .ok()
-                .and_then(|r| r.decode().ok());
+            let img = crate::image_utils::open_with_orientation(&photo.file_path).ok();
             if let Some(ref img) = img {
                 face::save_face_thumbnail(img, &first_detection.rect, &thumbs_dir, &first_detection.photo_id)
             } else {

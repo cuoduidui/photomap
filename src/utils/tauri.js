@@ -29,8 +29,8 @@ export async function updatePhotoLocation(request) {
   return invoke("update_photo_location", { request });
 }
 
-export async function batchGeocode() {
-  return invoke("batch_geocode");
+export async function batchGeocode(force = false) {
+  return invoke("batch_geocode", { force });
 }
 
 export async function geocodePhoto(photoId) {
@@ -159,15 +159,56 @@ export function onGeocodeProgress(callback) {
   });
 }
 
-// 图片缓存：避免重复加载
+// 图片缓存（LRU）：限制内存占用，避免长期运行无限增长。
+// 缩略图（约 150px）单张 10-50KB，可多缓存一些；原图 base64 可能很大，严格限制数量。
 const imageCache = new Map();
+const THUMB_CACHE_LIMIT = 400;
+const FULL_CACHE_LIMIT = 20;
+let thumbCount = 0;
+let fullCount = 0;
+
+function cachePut(path, value) {
+  const thumb = isThumbnail(path);
+  if (imageCache.has(path)) {
+    // 刷新 LRU 位置
+    imageCache.delete(path);
+    if (thumb) thumbCount--; else fullCount--;
+  }
+  imageCache.set(path, value);
+  if (thumb) thumbCount++; else fullCount++;
+  // 超出上限时从最久未使用的条目开始淘汰
+  const overLimit = thumb ? thumbCount > THUMB_CACHE_LIMIT : fullCount > FULL_CACHE_LIMIT;
+  if (overLimit) {
+    for (const k of imageCache.keys()) {
+      const kThumb = isThumbnail(k);
+      if (thumb && kThumb && thumbCount > THUMB_CACHE_LIMIT) {
+        imageCache.delete(k);
+        thumbCount--;
+      } else if (!thumb && !kThumb && fullCount > FULL_CACHE_LIMIT) {
+        imageCache.delete(k);
+        fullCount--;
+      }
+      if (!(thumb ? thumbCount > THUMB_CACHE_LIMIT : fullCount > FULL_CACHE_LIMIT)) break;
+    }
+  }
+}
+
+function isThumbnail(path) {
+  return /thumb|face_|_thumb/i.test(path);
+}
 
 export async function getImageBase64(path) {
   if (!path) return null;
-  if (imageCache.has(path)) return imageCache.get(path);
+  if (imageCache.has(path)) {
+    // LRU：命中时移动到最新位置
+    const value = imageCache.get(path);
+    imageCache.delete(path);
+    imageCache.set(path, value);
+    return value;
+  }
   try {
     const result = await invoke("get_image_base64", { path });
-    imageCache.set(path, result);
+    cachePut(path, result);
     return result;
   } catch (e) {
     console.warn("加载图片失败:", path, e);
@@ -177,6 +218,18 @@ export async function getImageBase64(path) {
 
 export function clearImageCache() {
   imageCache.clear();
+  thumbCount = 0;
+  fullCount = 0;
+}
+
+// 删除照片后同步清除对应缓存条目，避免残留内存与失效数据
+export function removeCachedImages(paths) {
+  for (const p of paths) {
+    if (p && imageCache.has(p)) {
+      imageCache.delete(p);
+      if (isThumbnail(p)) thumbCount--; else fullCount--;
+    }
+  }
 }
 
 // --- Trips ---

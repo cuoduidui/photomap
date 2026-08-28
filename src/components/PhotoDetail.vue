@@ -8,7 +8,7 @@
 
       <div class="dialog-body">
         <div class="detail-image">
-          <img v-if="photo.thumbnail_path" :src="convertFileSrc(photo.thumbnail_path)" alt="" />
+          <img v-if="thumbSrc" :src="thumbSrc" alt="" />
           <div v-else class="img-placeholder">无预览图</div>
         </div>
 
@@ -77,8 +77,8 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { usePhotoStore } from "../stores/photoStore";
+import { getImageBase64 } from "../utils/tauri";
 
 const props = defineProps({
   photo: { type: Object, required: true },
@@ -87,6 +87,22 @@ const emit = defineEmits(["close"]);
 
 const store = usePhotoStore();
 const geocoding = ref(false);
+const thumbSrc = ref(null);
+
+async function loadThumb() {
+  thumbSrc.value = null;
+  if (!props.photo.thumbnail_path) return;
+  const b64 = await getImageBase64(props.photo.thumbnail_path);
+  if (b64) thumbSrc.value = b64;
+}
+
+onMounted(() => {
+  loadThumb();
+});
+
+watch(() => props.photo.id, () => {
+  loadThumb();
+});
 
 const exifData = computed(() => {
   if (!props.photo.exif_data) return null;

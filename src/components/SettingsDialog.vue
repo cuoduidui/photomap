@@ -32,8 +32,12 @@
               <span v-else>📍 批量补全地址信息</span>
             </button>
             <p class="geocode-desc">
-              为所有有 GPS 坐标但缺少地址的照片，自动获取省市区和详细地址
+              为有 GPS 坐标但缺少地址的照片自动补全省市区和详细地址
             </p>
+            <label class="config-row">
+              <input type="checkbox" v-model="geocodeForce" />
+              <span>刷新全部（已解析的照片也重新获取）</span>
+            </label>
             <div v-if="geocodeResult" class="geocode-result">
               ✅ 已为 {{ geocodeResult }} 张照片补全地址
             </div>
@@ -140,6 +144,7 @@ const geocoding = ref(false);
 const geocodeDone = ref(0);
 const geocodeTotal = ref(0);
 const geocodeResult = ref(null);
+const geocodeForce = ref(false);
 let unlistenGeocode = null;
 
 async function doBatchGeocode() {
@@ -150,7 +155,7 @@ async function doBatchGeocode() {
   geocodeResult.value = null;
   
   try {
-    const updated = await store.runBatchGeocode();
+    const updated = await store.runBatchGeocode(geocodeForce.value);
     geocodeResult.value = updated;
   } catch (e) {
     console.error("逆地理编码失败:", e);
