@@ -2,7 +2,17 @@
 
 > 把一整个文件夹的照片，变成一张会讲故事的旅行地图。
 
+
+<p align="center">
+  <a href="https://github.com/cuoduidui/photomap"><img src="https://img.shields.io/badge/platform-Windows-0078d6.svg" alt="Platform: Windows"/></a>
+  <a href="https://github.com/cuoduidui/photomap"><img src="https://img.shields.io/badge/i18n-7%20languages-green.svg" alt="7 Languages"/></a>
+  <a href="https://github.com/cuoduidui/photomap"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"/></a>
+</p>
+
 PhotoMap 是一款本地优先的 Windows 桌面应用：导入照片后自动按 GPS 定位到地图，按时间轴回放旅程，并用 AI 一键生成图文游记。所有照片与数据只保存在你自己的设备上。
+
+> 项目仓库：[https://github.com/cuoduidui/photomap](https://github.com/cuoduidui/photomap)
 
 ## ✨ 功能特性
 
@@ -37,6 +47,11 @@ PhotoMap 是一款本地优先的 Windows 桌面应用：导入照片后自动�
 - 7 种界面语言：简体中文 / English / 日本語 / Français / 한국어 / Deutsch / Русский
 - 多套配色主题一键切换
 - API Key 使用 Windows DPAPI 加密存储
+
+## 📸 截图
+
+<!-- 截图占位：图片放入 docs/screenshots/ 后取消注释 -->
+<!-- ![主界面](docs/screenshots/main.png) -->
 
 ## 🛠️ 技术栈
 
@@ -150,6 +165,19 @@ npm run tauri build    # 构建安装包（NSIS / MSI）
 
 欢迎提交 Issue 与 Pull Request。开发前请先阅读 [docs/travel-journal-prd.md](docs/travel-journal-prd.md) 了解产品设计。
 
+## 💖 打赏支持
+
+如果 PhotoMap 对你有帮助，欢迎支持项目持续发展：
+
+- GitHub Sponsors（如已开启）：[点击赞助](https://github.com/sponsors/cuoduidui)
+- 爱发电 / 微信赞赏码 / 支付宝：待补充
+
+## 💬 交流与反馈
+
+- 问题与建议：[GitHub Issues](https://github.com/cuoduidui/photomap/issues)
+- 邮箱：待补充
+- 微信群 / QQ 群：待补充
+
 ## 📄 开源协议
 
 本项目基于 [MIT License](LICENSE) 开源。
@@ -204,6 +232,12 @@ Local-first. Photos and data never leave your device except map tiles / reverse 
 ### Roadmap
 
 - [Map provider abstraction](docs/map-provider-abstraction.md): decouple AMap and add OpenStreetMap / MapTiler support for overseas users (contributions welcome)
+
+### Donate & Contact
+
+- Sponsors: [GitHub Sponsors](https://github.com/sponsors/cuoduidui) (if enabled)
+- Issues & suggestions: [GitHub Issues](https://github.com/cuoduidui/photomap/issues)
+- Email / community group: TBD
 
 ### License
 
