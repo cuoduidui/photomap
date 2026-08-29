@@ -7,14 +7,25 @@ use std::fs;
 use tauri::{AppHandle, Emitter};
 
 fn load_font() -> Result<FontVec, String> {
-    let font_paths = [
-        "C:\\Windows\\Fonts\\msyh.ttc",
-        "C:\\Windows\\Fonts\\msyhbd.ttc",
-        "C:\\Windows\\Fonts\\simhei.ttf",
-        "C:\\Windows\\Fonts\\simsun.ttc",
-        "C:\\Windows\\Fonts\\arial.ttf",
-    ];
-    for path in &font_paths {
+    let font_paths: &[&str] = if cfg!(target_os = "macos") {
+        &[
+            "/System/Library/Fonts/PingFang.ttc",
+            "/System/Library/Fonts/STHeiti Light.ttc",
+            "/System/Library/Fonts/STHeiti Medium.ttc",
+            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/Library/Fonts/Arial Unicode.ttf",
+        ]
+    } else {
+        &[
+            "C:\\Windows\\Fonts\\msyh.ttc",
+            "C:\\Windows\\Fonts\\msyhbd.ttc",
+            "C:\\Windows\\Fonts\\simhei.ttf",
+            "C:\\Windows\\Fonts\\simsun.ttc",
+            "C:\\Windows\\Fonts\\arial.ttf",
+        ]
+    };
+    for path in font_paths {
         if let Ok(data) = fs::read(path) {
             if let Ok(font) = FontVec::try_from_vec(data) {
                 return Ok(font);
@@ -92,6 +103,14 @@ pub fn open_file_location(path: &str) -> Result<(), String> {
         // explorer 的 /select, 参数在 Windows 中支持含空格路径。
         Command::new("explorer.exe")
             .arg(format!("/select,{}", path))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("-R")
+            .arg(path)
             .spawn()
             .map_err(|e| e.to_string())?;
     }

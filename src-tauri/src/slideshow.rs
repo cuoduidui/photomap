@@ -13,7 +13,7 @@ fn ensure_ffmpeg() -> Result<(), String> {
         .status();
     match status {
         Ok(s) if s.success() => Ok(()),
-        _ => Err("未找到 ffmpeg，请先安装 ffmpeg 并加入系统 PATH（例如 winget install ffmpeg）后重试。".to_string()),
+        _ => Err("未找到 ffmpeg，请先安装并加入系统 PATH（Windows: winget install ffmpeg；macOS: brew install ffmpeg）后重试。".to_string()),
     }
 }
 

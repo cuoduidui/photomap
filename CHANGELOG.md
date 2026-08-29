@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 ### 🚧 计划中 / Planned
 
 - 地图服务抽象层：接入 OpenStreetMap / MapTiler，支持海外用户（设计文档：[docs/map-provider-abstraction.md](docs/map-provider-abstraction.md)）
+- macOS 支持：跨平台适配（Keychain 密钥保护、系统字体、Finder 定位）与构建文档
 - 补充应用截图与更多使用文档
 
 ## [1.0.0] - 2026-08-29

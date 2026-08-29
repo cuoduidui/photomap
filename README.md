@@ -84,10 +84,10 @@ photomap/
 
 ## ✅ 环境要求
 
-- Windows 10/11（需 WebView2 运行时）
+- Windows 10/11（需 WebView2 运行时）或 macOS 12+
 - Node.js 18+ 与 npm
-- Rust stable（MSVC 工具链）
-- ffmpeg（可选，仅影集视频需要）
+- Rust stable（Windows 用 MSVC 工具链；macOS 用 Xcode Command Line Tools）
+- ffmpeg（可选，仅影集视频需要；Windows: winget install ffmpeg / macOS: brew install ffmpeg）
 - 高德开放平台账号（地图显示 + 逆地理编码）
 
 ## 🚀 快速开始
@@ -95,8 +95,22 @@ photomap/
 ```bash
 npm install
 npm run tauri dev      # 开发模式运行
-npm run tauri build    # 构建安装包（NSIS / MSI）
+npm run tauri build    # 构建安装包（Windows: NSIS / MSI；macOS: .app / DMG）
 ```
+
+### macOS 构建
+
+```bash
+xcode-select --install     # 安装 Xcode Command Line Tools
+brew install ffmpeg        # 可选，影集视频需要
+npm install
+npm run tauri build        # 产物在 src-tauri/target/release/bundle/（.app / .dmg）
+```
+
+说明：
+- API Key 在 macOS 上由系统钥匙串（Keychain）保护，与 Windows 的 DPAPI 加密等价
+- 地图仍使用高德 Web JS API；海外区域显示受限，已规划多地图源支持（见 Roadmap）
+- Windows 专用配置（NSIS/MSI、MSIX 打包脚本）在 macOS 构建时会被自动忽略
 
 ## 📖 使用指南
 
@@ -211,7 +225,7 @@ Vue 3 · Vite · Pinia · vue-i18n · Tauri 2 (Rust) · SQLite · AMap
 
 ### Prerequisites
 
-Windows 10/11, Node.js 18+, Rust stable, ffmpeg (optional, for slideshows), and an AMap developer account.
+Windows 10/11 or macOS 12+, Node.js 18+, Rust stable (MSVC on Windows, Xcode Command Line Tools on macOS), ffmpeg (optional, for slideshows), and an AMap developer account.
 
 ### Quick start
 
@@ -220,6 +234,8 @@ npm install
 npm run tauri dev
 npm run tauri build
 ```
+
+On macOS, run `xcode-select --install` first, and install ffmpeg via `brew install ffmpeg` (optional). Build output goes to `src-tauri/target/release/bundle/` (`.app` / `.dmg`). API keys are protected by the system Keychain on macOS (equivalent to DPAPI on Windows).
 
 ### First-run setup
 
