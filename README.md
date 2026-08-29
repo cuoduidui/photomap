@@ -154,6 +154,10 @@ npm run tauri build    # 构建安装包（NSIS / MSI）
 
 本项目基于 [MIT License](LICENSE) 开源。
 
+## 🗺️ Roadmap / 路线图
+
+- [地图 Provider 抽象](docs/map-provider-abstraction.md)：解耦高德，支持 OpenStreetMap / MapTiler 等海外地图源（欢迎贡献）
+
 ---
 
 ## 🇬🇧 English
@@ -196,6 +200,10 @@ Open Settings and fill in:
 ### Privacy
 
 Local-first. Photos and data never leave your device except map tiles / reverse geocoding (AMap) and AI requests (your configured provider). API keys are encrypted with Windows DPAPI.
+
+### Roadmap
+
+- [Map provider abstraction](docs/map-provider-abstraction.md): decouple AMap and add OpenStreetMap / MapTiler support for overseas users (contributions welcome)
 
 ### License
 
