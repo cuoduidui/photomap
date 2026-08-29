@@ -169,13 +169,14 @@ npm run tauri build    # 构建安装包（NSIS / MSI）
 
 如果 PhotoMap 对你有帮助，欢迎支持项目持续发展：
 
-- GitHub Sponsors（如已开启）：[点击赞助](https://github.com/sponsors/cuoduidui)
-- 爱发电 / 微信赞赏码 / 支付宝：待补充
+- 微信赞赏码（WeChat Reward）：
+
+  ![微信赞赏码](docs/images/donate-qr.jpg)
 
 ## 💬 交流与反馈
 
 - 问题与建议：[GitHub Issues](https://github.com/cuoduidui/photomap/issues)
-- 邮箱：待补充
+- 邮箱：[780106788@qq.com](mailto:780106788@qq.com)
 - 微信群 / QQ 群：待补充
 
 ## 📄 开源协议
@@ -235,9 +236,12 @@ Local-first. Photos and data never leave your device except map tiles / reverse 
 
 ### Donate & Contact
 
-- Sponsors: [GitHub Sponsors](https://github.com/sponsors/cuoduidui) (if enabled)
+- WeChat reward QR:
+
+  ![WeChat Reward](docs/images/donate-qr.jpg)
 - Issues & suggestions: [GitHub Issues](https://github.com/cuoduidui/photomap/issues)
-- Email / community group: TBD
+- Email: [780106788@qq.com](mailto:780106788@qq.com)
+- Community group: TBD
 
 ### License
 
