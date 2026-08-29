@@ -165,6 +165,8 @@ npm run tauri build    # 构建安装包（NSIS / MSI）
 
 欢迎提交 Issue 与 Pull Request。开发前请先阅读 [docs/travel-journal-prd.md](docs/travel-journal-prd.md) 了解产品设计。
 
+- 📜 更新日志：[CHANGELOG.md](CHANGELOG.md)
+
 ## 💖 打赏支持
 
 如果 PhotoMap 对你有帮助，欢迎支持项目持续发展：
@@ -233,6 +235,10 @@ Local-first. Photos and data never leave your device except map tiles / reverse 
 ### Roadmap
 
 - [Map provider abstraction](docs/map-provider-abstraction.md): decouple AMap and add OpenStreetMap / MapTiler support for overseas users (contributions welcome)
+
+### Release notes
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ### Donate & Contact
 
