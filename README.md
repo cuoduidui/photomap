@@ -111,6 +111,7 @@ npm run tauri build        # 产物在 src-tauri/target/release/bundle/（.app /
 - API Key 在 macOS 上由系统钥匙串（Keychain）保护，与 Windows 的 DPAPI 加密等价
 - 地图仍使用高德 Web JS API；海外区域显示受限，已规划多地图源支持（见 Roadmap）
 - Windows 专用配置（NSIS/MSI、MSIX 打包脚本）在 macOS 构建时会被自动忽略
+- 完整打包验证清单见 [docs/build-macos.md](docs/build-macos.md)
 
 ## 📖 使用指南
 
@@ -236,6 +237,7 @@ npm run tauri build
 ```
 
 On macOS, run `xcode-select --install` first, and install ffmpeg via `brew install ffmpeg` (optional). Build output goes to `src-tauri/target/release/bundle/` (`.app` / `.dmg`). API keys are protected by the system Keychain on macOS (equivalent to DPAPI on Windows).
+See [docs/build-macos.md](docs/build-macos.md) for a full packaging verification checklist.
 
 ### First-run setup
 
